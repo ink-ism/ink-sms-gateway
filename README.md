@@ -1,5 +1,291 @@
 # INK 短信网关
 
+基于 Spring Cloud + Vue 3 的 CMPP 2.0 短信网关系统，支持短信收发、通道管理、用户认证等完整功能。
+
+## 系统架构
+
+```
+┌─────────────┐     ┌──────────────────────┐     ┌───────────────────┐
+│   Frontend   │────▶│  Gateway Service     │────▶│  User Service     │
+│  Vue 3 SPA   │     │  Spring Cloud Gateway│     │  RESTful 微服务    │
+│  :3000       │     │  :8080               │     │  :8081            │
+└─────────────┘     └──────────┬───────────┘     └───────────────────┘
+                               │
+                     ┌─────────┴─────────┐
+                     │  Admin Service    │
+                     │  后台管理服务       │
+                     │  :8082            │
+                     └────────┬──────────┘
+                              │
+┌─────────────┐     ┌─────────┴─────────┐     ┌───────────────────┐
+│  CMPP 上游   │◀───▶│  API Service      │     │  Nacos (8848)     │
+│  短信网关    │     │  CMPP 短信收发     │     │  服务注册与发现     │
+│  :7890      │     │  :8083 / :7891    │     └───────────────────┘
+└─────────────┘     └────────┬──────────┘
+                             │
+                    ┌────────┴─────────┐
+                    │  MySQL (3306)    │
+                    │  数据持久化       │
+                    └──────────────────┘
+                             │
+                    ┌────────┴─────────┐
+                    │  Redis           │
+                    │  缓存 & 会话管理  │
+                    └──────────────────┘
+```
+
+## 项目结构
+
+```
+ink-sms-gateway/
+├── backend/
+│   ├── pom.xml                          # Maven 根 POM
+│   ├── common/                          # 公共模块
+│   │   └── src/main/java/com/ink/common/
+│   │       ├── config/                  # Redis 配置
+│   │       ├── constant/                # 常量定义
+│   │       ├── exception/               # 全局异常处理
+│   │       └── utils/                   # 工具类（JWT/Redis/Result）
+│   ├── channel/                         # CMPP 协议模块
+│   │   └── src/main/java/com/ink/channel/
+│   │       ├── cmpp/
+│   │       │   ├── codec/               # CMPP 编解码器
+│   │       │   ├── message/             # CMPP 消息定义
+│   │       │   ├── util/                # 认证工具
+│   │       ├── CmppCommandType.java     # 命令类型枚举
+│   │       ├── CmppConstants.java       # 协议常量
+│   │       ├── CmppHeader.java          # 消息头
+│   │       └── CmppMessage.java         # 消息基类
+│   ├── core/                            # CMPP 核心模块
+│   │   └── src/main/java/com/ink/core/
+│   │       ├── client/                  # CMPP 客户端
+│   │       ├── config/                  # 通道配置
+│   │       ├── connection/              # 连接池管理
+│   │       └── handler/                 # 消息处理器
+│   ├── gateway/                         # 网关服务（:8080）
+│   ├── user-service/                    # 用户服务（:8081）
+│   ├── admin-service/                   # 管理服务（:8082）
+│   └── api/                             # 短信 API 服务（:8083）
+│       └── src/main/java/com/ink/api/
+│           ├── controller/              # 短信发送 & 通道刷新
+│           ├── listener/                # 上行消息监听
+│           ├── server/                  # CMPP 服务端
+│           ├── service/                 # 短信记录 & 通道配置
+│           └── session/                 # SP 会话管理
+├── front/                               # 前端 SPA
+│   └── src/
+│       ├── api/                         # API 请求封装
+│       ├── components/                  # 公共组件
+│       ├── router/                      # 路由配置
+│       ├── stores/                      # Pinia 状态管理
+│       ├── types/                       # TypeScript 类型
+│       ├── utils/                       # Axios 封装
+│       └── views/                       # 页面组件
+└── wiki/                                # 项目文档
+```
+
+## 技术栈
+
+| 层级 | 技术 | 版本 |
+|------|------|------|
+| **后端框架** | Spring Boot | 3.2.0 |
+| **微服务** | Spring Cloud | 2023.0.0 |
+| **服务注册** | Spring Cloud Alibaba (Nacos) | 2023.0.3.4 |
+| **网关** | Spring Cloud Gateway | (随 Spring Cloud) |
+| **ORM** | MyBatis | 3.5.15 |
+| **数据库** | MySQL | 8.0+ |
+| **缓存** | Spring Data Redis (Lettuce) | 3.2.1 |
+| **认证** | JJWT | 0.12.3 |
+| **网络框架** | Netty | (CMPP 协议通信) |
+| **前端框架** | Vue 3 + TypeScript | 3.4.0 / 5.3.3 |
+| **构建** | Vite | 5.0.8 |
+| **UI** | Element Plus | 2.4.4 |
+| **状态管理** | Pinia | 2.1.7 |
+
+## 环境要求
+
+- **JDK** 17+
+- **Node.js** 18+
+- **MySQL** 8.0+
+- **Redis** 6.0+
+- **Nacos** 2.2+（standalone 模式）
+- **Maven** 3.6+
+
+## 快速开始
+
+### 1. 克隆项目
+
+```bash
+git clone https://github.com/ink-ism/ink-sms-gateway.git
+cd ink-sms-gateway
+```
+
+### 2. 初始化数据库
+
+```bash
+mysql -u root -p < backend/admin-service/src/main/resources/db/init.sql
+```
+
+创建 `ink_sms_gateway` 数据库及所有表，包括：
+- `ink_admin_user` - 管理员表
+- `ink_channel` - 通道配置表
+- `ink_sms_down` - 下行短信记录表
+- `ink_sms_up` - 上行短信记录表
+- `ink_user` - 用户表
+
+### 3. 启动中间件
+
+```bash
+# 启动 Redis（默认端口 6379）
+redis-server
+
+# 启动 Nacos（standalone 模式，端口 8848）
+cd <nacos-home>/bin
+startup.cmd -m standalone
+```
+
+> **注意**: Nacos 3.x 需要 JVM 参数 `-Dnacos.server.grpc.port.offset=1000` 以兼容 Spring Cloud Alibaba 2023.x。
+
+### 4. 启动后端服务
+
+```bash
+cd backend
+
+# 编译公共模块
+mvn clean install -pl common,channel,core
+
+# 启动各服务（分别在不同终端）
+cd gateway && mvn spring-boot:run          # 网关 :8080
+cd user-service && mvn spring-boot:run     # 用户服务 :8081
+cd admin-service && mvn spring-boot:run    # 管理服务 :8082
+cd api && mvn spring-boot:run              # 短信服务 :8083
+```
+
+### 5. 启动前端
+
+```bash
+cd front
+npm install
+npm run dev
+```
+
+访问 **http://localhost:3000**
+
+## 核心功能
+
+### CMPP 2.0 协议支持
+
+- **Submit** - 下行短信发送
+- **Deliver** - 上行短信接收 & 状态报告
+- **Active Test** - 心跳保活
+- **Connect/Terminate** - 连接管理
+
+### 消息 ID 格式
+
+客户端生成的消息 ID 格式：`SMS` + `13位时间戳` + `8位UUID`
+
+示例：`SMS1783652668212a3f8b2c1`
+
+### 通道管理
+
+- 数据库驱动配置（`ink_channel` 表）
+- 支持多通道连接池
+- 可配置每通道最大连接数
+- 运行时热刷新（无需重启服务）
+
+### 短信记录
+
+- 下行短信记录（`ink_sms_down`）
+- 上行短信记录（`ink_sms_up`）
+- 状态报告自动匹配更新
+
+## API 接口
+
+### 短信服务（免鉴权）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/sms/send` | 发送短信 |
+| `GET` | `/api/sms/status` | 连接状态 |
+| `POST` | `/api/sms/channels/refresh` | 刷新通道配置 |
+
+### 管理服务（需鉴权）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/admin/login` | 管理员登录 |
+| `GET` | `/api/admin/channel/list` | 通道列表 |
+| `POST` | `/api/admin/channel` | 新增通道 |
+| `PUT` | `/api/admin/channel/{id}` | 更新通道 |
+| `DELETE` | `/api/admin/channel/{id}` | 删除通道 |
+| `GET` | `/api/admin/sms/down/list` | 下行记录列表 |
+| `GET` | `/api/admin/sms/up/list` | 上行记录列表 |
+
+### 用户服务（需鉴权）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/user/register` | 用户注册 |
+| `POST` | `/api/user/login` | 用户登录 |
+| `GET` | `/api/user/info` | 获取用户信息 |
+| `GET` | `/api/user/list` | 用户列表 |
+
+## 数据库设计
+
+### ink_channel - 通道配置表
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | BIGINT PK | 自增主键 |
+| `name` | VARCHAR(50) | 通道名称 |
+| `code` | VARCHAR(30) | 通道编码（唯一） |
+| `host` | VARCHAR(100) | 服务器地址 |
+| `port` | INT | 服务器端口 |
+| `sp_id` | VARCHAR(30) | SP 企业代码 |
+| `shared_secret` | VARCHAR(100) | 共享密钥 |
+| `max_concurrent` | INT | 最大连接数 |
+| `status` | TINYINT | 0=禁用，1=启用 |
+
+### ink_sms_down - 下行短信记录表
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | BIGINT PK | 自增主键 |
+| `msg_id` | VARCHAR(64) | 客户端消息 ID |
+| `server_msg_id` | VARCHAR(32) | 服务端消息 ID |
+| `dest_terminal_id` | VARCHAR(21) | 目标手机号 |
+| `msg_content` | TEXT | 短信内容 |
+| `msg_fmt` | INT | 消息格式（0=ASCII, 8=UCS2, 15=GB2312） |
+| `channel_code` | VARCHAR(30) | 通道编码 |
+| `status` | TINYINT | 0=已提交, 1=成功, 2=失败 |
+| `status_report` | VARCHAR(20) | 状态报告 |
+
+## 前端页面
+
+| 路由 | 页面 | 说明 |
+|------|------|------|
+| `/` | Home | 首页 |
+| `/login` | Login | 登录页 |
+| `/dashboard` | Dashboard | 仪表盘 |
+| `/channels` | Channels | 通道管理 |
+| `/sms/down` | SmsDown | 下行记录 |
+| `/sms/up` | SmsUp | 上行记录 |
+| `/users` | Users | 用户管理 |
+| `/profile` | Profile | 个人中心 |
+
+## 已知事项
+
+- Nacos 需以 **standalone 模式**启动
+- Nacos 3.x 与 Spring Cloud Alibaba 2023.x 的 gRPC 端口偏移需通过 JVM 参数对齐
+- 网关基于 WebFlux，**不可**引入 `knife4j` 或 `spring-boot-starter-web` 等 Servlet 依赖
+- JWT 密钥长度需 ≥ 256 bit（32 字节）
+- 数据库表字符集为 `utf8mb4`
+
+## License
+
+MIT
+# INK 短信网关
+
 基于 Spring Cloud + Vue 3 的现代化短信网关系统，提供统一的 API 网关路由、JWT 认证与用户管理能力。
 
 ## 系统架构
