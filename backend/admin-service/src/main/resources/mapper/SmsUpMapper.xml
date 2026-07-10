@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ink.admin.mapper.SmsUpMapper">
+
+    <resultMap id="BaseResultMap" type="com.ink.admin.entity.SmsUp">
+        <id column="id" property="id"/>
+        <result column="msg_id" property="msgId"/>
+        <result column="src_terminal_id" property="srcTerminalId"/>
+        <result column="dest_id" property="destId"/>
+        <result column="msg_content" property="msgContent"/>
+        <result column="msg_fmt" property="msgFmt"/>
+        <result column="service_id" property="serviceId"/>
+        <result column="is_report" property="isReport"/>
+        <result column="report_stat" property="reportStat"/>
+        <result column="channel_code" property="channelCode"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <sql id="Base_Columns">
+        id, msg_id, src_terminal_id, dest_id, msg_content, msg_fmt,
+        service_id, is_report, report_stat, channel_code, create_time
+    </sql>
+
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_sms_up ORDER BY create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="search" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_sms_up
+        WHERE src_terminal_id LIKE CONCAT('%', #{keyword}, '%')
+           OR dest_id LIKE CONCAT('%', #{keyword}, '%')
+           OR msg_content LIKE CONCAT('%', #{keyword}, '%')
+           OR channel_code LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM ink_sms_up
+    </select>
+
+    <select id="countByKeyword" resultType="int">
+        SELECT COUNT(*) FROM ink_sms_up
+        WHERE src_terminal_id LIKE CONCAT('%', #{keyword}, '%')
+           OR dest_id LIKE CONCAT('%', #{keyword}, '%')
+           OR msg_content LIKE CONCAT('%', #{keyword}, '%')
+           OR channel_code LIKE CONCAT('%', #{keyword}, '%')
+    </select>
+
+    <insert id="insert" parameterType="com.ink.admin.entity.SmsUp" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ink_sms_up (
+            msg_id, src_terminal_id, dest_id, msg_content, msg_fmt,
+            service_id, is_report, report_stat, channel_code, create_time
+        ) VALUES (
+            #{msgId}, #{srcTerminalId}, #{destId}, #{msgContent}, #{msgFmt},
+            #{serviceId}, #{isReport}, #{reportStat}, #{channelCode}, #{createTime}
+        )
+    </insert>
+
+</mapper>

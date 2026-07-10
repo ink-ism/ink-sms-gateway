@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ink.admin.mapper.ChannelMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.ink.admin.entity.Channel">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="code" property="code"/>
+        <result column="host" property="host"/>
+        <result column="port" property="port"/>
+        <result column="sp_id" property="spId"/>
+        <result column="shared_secret" property="sharedSecret"/>
+        <result column="version" property="version"/>
+        <result column="heartbeat_interval" property="heartbeatInterval"/>
+        <result column="reconnect_interval" property="reconnectInterval"/>
+        <result column="max_reconnect_interval" property="maxReconnectInterval"/>
+        <result column="connect_timeout" property="connectTimeout"/>
+        <result column="max_concurrent" property="maxConcurrent"/>
+        <result column="status" property="status"/>
+        <result column="description" property="description"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 基础列 -->
+    <sql id="Base_Columns">
+        id, name, code, host, port, sp_id, shared_secret, version,
+        heartbeat_interval, reconnect_interval, max_reconnect_interval,
+        connect_timeout, max_concurrent, status, description,
+        create_time, update_time
+    </sql>
+
+    <!-- 根据ID查询 -->
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_channel WHERE id = #{id}
+    </select>
+
+    <!-- 根据编码查询 -->
+    <select id="findByCode" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_channel WHERE code = #{code}
+    </select>
+
+    <!-- 查询所有 -->
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_channel ORDER BY create_time DESC
+    </select>
+
+    <!-- 分页查询 -->
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_channel ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 关键字搜索 -->
+    <select id="search" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_channel
+        WHERE name LIKE CONCAT('%', #{keyword}, '%')
+           OR code LIKE CONCAT('%', #{keyword}, '%')
+           OR host LIKE CONCAT('%', #{keyword}, '%')
+           OR description LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 总数 -->
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM ink_channel
+    </select>
+
+    <!-- 搜索总数 -->
+    <select id="countByKeyword" resultType="int">
+        SELECT COUNT(*) FROM ink_channel
+        WHERE name LIKE CONCAT('%', #{keyword}, '%')
+           OR code LIKE CONCAT('%', #{keyword}, '%')
+           OR host LIKE CONCAT('%', #{keyword}, '%')
+           OR description LIKE CONCAT('%', #{keyword}, '%')
+    </select>
+
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.ink.admin.entity.Channel" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ink_channel (
+            name, code, host, port, sp_id, shared_secret, version,
+            heartbeat_interval, reconnect_interval, max_reconnect_interval,
+            connect_timeout, max_concurrent, status, description,
+            create_time, update_time
+        ) VALUES (
+            #{name}, #{code}, #{host}, #{port}, #{spId}, #{sharedSecret}, #{version},
+            #{heartbeatInterval}, #{reconnectInterval}, #{maxReconnectInterval},
+            #{connectTimeout}, #{maxConcurrent}, #{status}, #{description},
+            #{createTime}, #{updateTime}
+        )
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.ink.admin.entity.Channel">
+        UPDATE ink_channel
+        SET name = #{name},
+            code = #{code},
+            host = #{host},
+            port = #{port},
+            sp_id = #{spId},
+            shared_secret = #{sharedSecret},
+            version = #{version},
+            heartbeat_interval = #{heartbeatInterval},
+            reconnect_interval = #{reconnectInterval},
+            max_reconnect_interval = #{maxReconnectInterval},
+            connect_timeout = #{connectTimeout},
+            max_concurrent = #{maxConcurrent},
+            status = #{status},
+            description = #{description},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 删除 -->
+    <delete id="deleteById">
+        DELETE FROM ink_channel WHERE id = #{id}
+    </delete>
+
+    <!-- 更新状态 -->
+    <update id="updateStatus">
+        UPDATE ink_channel SET status = #{status}, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <!-- 检查编码是否存在 -->
+    <select id="existsByCode" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM ink_channel WHERE code = #{code}
+    </select>
+
+</mapper>

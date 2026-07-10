@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ink.admin.mapper.SmsDownMapper">
+
+    <resultMap id="BaseResultMap" type="com.ink.admin.entity.SmsDown">
+        <id column="id" property="id"/>
+        <result column="msg_id" property="msgId"/>
+        <result column="server_msg_id" property="serverMsgId"/>
+        <result column="src_id" property="srcId"/>
+        <result column="dest_terminal_id" property="destTerminalId"/>
+        <result column="msg_content" property="msgContent"/>
+        <result column="msg_fmt" property="msgFmt"/>
+        <result column="service_id" property="serviceId"/>
+        <result column="channel_code" property="channelCode"/>
+        <result column="status" property="status"/>
+        <result column="status_report" property="statusReport"/>
+        <result column="error_msg" property="errorMsg"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <sql id="Base_Columns">
+        id, msg_id, server_msg_id, src_id, dest_terminal_id, msg_content, msg_fmt,
+        service_id, channel_code, status, status_report, error_msg, create_time
+    </sql>
+
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_sms_down ORDER BY create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="search" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_sms_down
+        WHERE dest_terminal_id LIKE CONCAT('%', #{keyword}, '%')
+           OR src_id LIKE CONCAT('%', #{keyword}, '%')
+           OR msg_content LIKE CONCAT('%', #{keyword}, '%')
+           OR channel_code LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM ink_sms_down
+    </select>
+
+    <select id="countByKeyword" resultType="int">
+        SELECT COUNT(*) FROM ink_sms_down
+        WHERE dest_terminal_id LIKE CONCAT('%', #{keyword}, '%')
+           OR src_id LIKE CONCAT('%', #{keyword}, '%')
+           OR msg_content LIKE CONCAT('%', #{keyword}, '%')
+           OR channel_code LIKE CONCAT('%', #{keyword}, '%')
+    </select>
+
+    <insert id="insert" parameterType="com.ink.admin.entity.SmsDown" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ink_sms_down (
+            msg_id, server_msg_id, src_id, dest_terminal_id, msg_content, msg_fmt,
+            service_id, channel_code, status, status_report, error_msg, create_time
+        ) VALUES (
+            #{msgId}, #{serverMsgId}, #{srcId}, #{destTerminalId}, #{msgContent}, #{msgFmt},
+            #{serviceId}, #{channelCode}, #{status}, #{statusReport}, #{errorMsg}, #{createTime}
+        )
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE ink_sms_down
+        SET status = #{status}, status_report = #{statusReport}, error_msg = #{errorMsg}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

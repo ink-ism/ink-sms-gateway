@@ -1,0 +1,32 @@
+# Nacos 运行时产物
+derby.log
+logs/
+work/
+
+# Java
+**/target/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Node
+front/node_modules/
+front/dist/
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temp files
+*.tmp
+*.bak

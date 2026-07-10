@@ -1,0 +1,50 @@
+server:
+  port: 8083
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 20
+    accept-count: 100
+
+spring:
+  application:
+    name: api-service
+  datasource:
+    url: jdbc:mysql://100.101.92.2:3306/ink_sms_gateway?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: mysql_QDtbAQ
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: public
+        group: DEFAULT_GROUP
+      config:
+        enabled: false
+        import-check:
+          enabled: false
+
+# CMPP 下游服务器配置（接受 SP 连接）
+# 上游连接配置已从数据库 ink_channel 表加载，不再使用 YAML 配置
+cmpp:
+  server:
+    port: 7891
+    allowed-sp-list: "test:123456"
+    boss-threads: 1
+    worker-threads: 4
+
+# 日志配置
+logging:
+  charset:
+    console: UTF-8
+    file: UTF-8
+  level:
+    com.ink: DEBUG
+    io.netty: DEBUG
+
+# Knife4j 配置
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn

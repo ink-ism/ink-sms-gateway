@@ -1,0 +1,123 @@
+/** 用户信息 */
+export interface User {
+  id: number
+  username: string
+  email: string
+  phone: string
+  nickname: string
+  avatar: string
+  status: number
+  createTime: string
+  updateTime: string
+}
+
+/** 登录请求 */
+export interface LoginRequest {
+  username: string
+  password: string
+}
+
+/** 注册请求 */
+export interface RegisterRequest {
+  username: string
+  password: string
+  email: string
+  phone: string
+}
+
+/** 用户更新请求 */
+export interface UserUpdateRequest {
+  username: string
+  email: string
+  phone: string
+  nickname: string
+  avatar: string
+}
+
+/** 密码修改请求 */
+export interface PasswordUpdateRequest {
+  oldPassword: string
+  newPassword: string
+}
+
+/** API 统一响应 */
+export interface ApiResponse<T = unknown> {
+  code: number
+  message: string
+  data: T
+  timestamp: number
+}
+
+/** 登录响应数据 */
+export interface LoginResponse {
+  token: string
+  userInfo: User
+}
+
+/** 通道配置 */
+export interface Channel {
+  id: number
+  name: string
+  code: string
+  host: string
+  port: number
+  spId: string
+  sharedSecret: string
+  version: number
+  heartbeatInterval: number
+  reconnectInterval: number
+  maxReconnectInterval: number
+  connectTimeout: number
+  maxConcurrent: number
+  status: number
+  description: string
+  createTime: string
+  updateTime: string
+}
+
+/** 通道列表响应 */
+export interface ChannelListData {
+  list: Channel[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 下行短信记录 */
+export interface SmsDown {
+  id: number
+  msgId: string
+  srcId: string
+  destTerminalId: string
+  msgContent: string
+  msgFmt: number
+  serviceId: string
+  channelCode: string
+  status: number
+  statusReport: string
+  errorMsg: string
+  createTime: string
+}
+
+/** 上行短信记录 */
+export interface SmsUp {
+  id: number
+  msgId: string
+  srcTerminalId: string
+  destId: string
+  msgContent: string
+  msgFmt: number
+  serviceId: string
+  isReport: number
+  reportStat: string
+  channelCode: string
+  createTime: string
+}
+
+/** 短信列表响应 */
+export interface SmsListData<T> {
+  list: T[]
+  total: number
+  page: number
+  size: number
+}
