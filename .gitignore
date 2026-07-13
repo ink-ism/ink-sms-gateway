@@ -30,3 +30,8 @@ Thumbs.db
 # Temp files
 *.tmp
 *.bak
+
+# Deploy output
+deploy/
+*.tar.gz
+*.zip

@@ -6,9 +6,9 @@
 
 ```
 ┌─────────────┐     ┌──────────────────────┐     ┌───────────────────┐
-│   Frontend   │────▶│  Gateway Service     │────▶│  User Service     │
-│  Vue 3 SPA   │     │  Spring Cloud Gateway│     │  RESTful 微服务    │
-│  :3000       │     │  :8080               │     │  :8081            │
+│   Frontend   │────▶│  Gateway Service     │────▶│  User Service   │
+│  Vue 3 SPA   │     │  Spring Cloud Gateway│     │  RESTful 微服务   │
+│  :3000       │     │  :8080               │     │  :8081           │
 └─────────────┘     └──────────┬───────────┘     └───────────────────┘
                                │
                      ┌─────────┴─────────┐
