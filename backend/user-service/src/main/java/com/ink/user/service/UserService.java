@@ -62,7 +62,8 @@ public class UserService {
         if (user == null) {
             throw new BusinessException("用户名或密码错误");
         }
-        if (user.getStatus() == 0) {
+        // status 为 0 表示禁用，NULL 或 1 表示正常
+        if (Integer.valueOf(0).equals(user.getStatus())) {
             throw new BusinessException("账号已被禁用");
         }
         if (!passwordEncoder.matches(password, user.getPassword())) {

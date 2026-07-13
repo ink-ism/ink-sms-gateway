@@ -13,11 +13,14 @@ import com.ink.channel.cmpp.message.CmppSubmitResponseMessage;
 import com.ink.channel.cmpp.message.CmppTerminateResponseMessage;
 import com.ink.channel.cmpp.util.CmppAuthUtil;
 import com.ink.channel.session.CmppSession;
+import com.ink.api.service.SmsRecordService;
 import com.ink.core.connection.CmppConnectionManager;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.timeout.IdleStateEvent;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.UUID;
 
 /**
  * CMPP 服务端消息处理器
@@ -33,8 +36,15 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
     /** 上游连接管理器（通过构造函数注入，可为 null） */
     private static CmppConnectionManager connectionManager;
 
+    /** 短信记录服务（通过静态注入，可为 null） */
+    private static SmsRecordService smsRecordService;
+
     public static void setConnectionManager(CmppConnectionManager manager) {
         connectionManager = manager;
+    }
+
+    public static void setSmsRecordService(SmsRecordService service) {
+        smsRecordService = service;
     }
 
     public CmppServerHandler(CmppServerConfig serverConfig, SpSessionManager sessionManager) {
@@ -133,6 +143,11 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
         CmppSubmitRequestMessage submitReq = CmppSubmitRequestMessage.fromBytes(body);
         log.info("收到 SP Submit: spId={}, dest={}", session.getSpId(), submitReq.getDestTerminalId());
 
+        // 生成唯一客户端 msgId
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String uuidPart = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String clientMsgId = "CMPP" + timestamp + uuidPart;
+
         // 转发到上游 CMPP 服务器，异步等待 Submit Response
         if (connectionManager != null && connectionManager.isConnected()) {
             connectionManager.submit(submitReq).whenComplete((result, ex) -> {
@@ -140,11 +155,25 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
                 if (ex == null) {
                     submitResp.setMsgId(result.getServerMsgId());
                     submitResp.setResult(0);
-                    log.info("SP Submit 转发成功: serverMsgId=0x{}", Long.toHexString(result.getServerMsgId()));
+                    String serverMsgIdHex = Long.toHexString(result.getServerMsgId());
+                    String channelCode = result.getChannelCode();
+                    log.info("SP Submit 转发成功: serverMsgId=0x{}, channel={}", serverMsgIdHex, channelCode);
+                    // 记录下行短信
+                    if (smsRecordService != null) {
+                        smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, submitReq.getSrcId(),
+                                submitReq.getDestTerminalId()[0], submitReq.getMsgContent(), submitReq.getMsgFmt(),
+                                submitReq.getServiceId(), channelCode, 1, null);
+                    }
                 } else {
                     submitResp.setMsgId(System.currentTimeMillis());
                     submitResp.setResult(2);
                     log.warn("SP Submit 转发失败: {}", ex.getMessage());
+                    // 记录失败的下行短信
+                    if (smsRecordService != null) {
+                        smsRecordService.recordSmsDown(clientMsgId, null, submitReq.getSrcId(),
+                                submitReq.getDestTerminalId()[0], submitReq.getMsgContent(), submitReq.getMsgFmt(),
+                                submitReq.getServiceId(), null, 2, ex.getMessage());
+                    }
                 }
                 sendResponse(CmppCommandType.SUBMIT_RESP.getCommandId(), sequenceId, submitResp.toBytes());
             });
@@ -152,6 +181,12 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
             log.warn("上游 CMPP 未连接，无法转发 Submit");
             CmppSubmitResponseMessage submitResp = new CmppSubmitResponseMessage();
             submitResp.setResult(1);
+            // 记录失败的下行短信
+            if (smsRecordService != null) {
+                smsRecordService.recordSmsDown(clientMsgId, null, submitReq.getSrcId(),
+                        submitReq.getDestTerminalId()[0], submitReq.getMsgContent(), submitReq.getMsgFmt(),
+                        submitReq.getServiceId(), null, 2, "上游CMPP未连接");
+            }
             sendResponse(CmppCommandType.SUBMIT_RESP.getCommandId(), sequenceId, submitResp.toBytes());
         }
     }

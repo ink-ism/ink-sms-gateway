@@ -158,6 +158,43 @@ public class CmppConnectionManager {
         return innerFuture.thenApply(serverMsgId -> new SubmitResult(serverMsgId, channelCode));
     }
 
+    /**
+     * 向指定通道发送短信（Submit）
+     * 用于测试发送，绕过 round-robin 直接选择指定通道
+     */
+    public CompletableFuture<SubmitResult> submitToChannel(String channelCode, CmppSubmitRequestMessage submitReq) {
+        ChannelPool pool = channelPools.get(channelCode);
+        if (pool == null) {
+            return CompletableFuture.failedFuture(new RuntimeException("通道不存在: " + channelCode));
+        }
+
+        PoolEntry entry = pool.pickAvailable();
+        if (entry == null) {
+            return CompletableFuture.failedFuture(new RuntimeException("通道无可用连接: " + channelCode));
+        }
+
+        int seqId = generateSequenceId();
+        CompletableFuture<Long> innerFuture = new CompletableFuture<>();
+        entry.clientHandler.registerPendingSubmit(seqId, innerFuture);
+
+        CmppMessage message = CmppMessage.create(
+                CmppCommandType.SUBMIT.getCommandId(), seqId, submitReq.toBytes());
+
+        entry.clientHandler.getSession().send(message);
+        log.info("测试发送 Submit: channel={}, connId={}, seqId={}, dest={}",
+                channelCode, entry.connIndex, seqId, submitReq.getDestTerminalId());
+
+        return innerFuture.thenApply(serverMsgId -> new SubmitResult(serverMsgId, channelCode));
+    }
+
+    /**
+     * 检查指定通道是否已连接
+     */
+    public boolean isChannelConnected(String channelCode) {
+        ChannelPool pool = channelPools.get(channelCode);
+        return pool != null && pool.hasConnected();
+    }
+
     public boolean isConnected() {
         return channelPools.values().stream().anyMatch(ChannelPool::hasConnected);
     }

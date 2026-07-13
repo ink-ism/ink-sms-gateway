@@ -1,6 +1,7 @@
 package com.ink.api.server;
 
 import com.ink.api.config.CmppServerConfig;
+import com.ink.api.service.SmsRecordService;
 import com.ink.api.session.SpSessionManager;
 import com.ink.core.connection.CmppConnectionManager;
 import io.netty.bootstrap.ServerBootstrap;
@@ -25,6 +26,7 @@ public class CmppServer {
     private final CmppServerConfig serverConfig;
     private final SpSessionManager sessionManager;
     private final CmppConnectionManager connectionManager;
+    private final SmsRecordService smsRecordService;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
@@ -32,16 +34,19 @@ public class CmppServer {
 
     public CmppServer(CmppServerConfig serverConfig,
                       SpSessionManager sessionManager,
-                      CmppConnectionManager connectionManager) {
+                      CmppConnectionManager connectionManager,
+                      SmsRecordService smsRecordService) {
         this.serverConfig = serverConfig;
         this.sessionManager = sessionManager;
         this.connectionManager = connectionManager;
+        this.smsRecordService = smsRecordService;
     }
 
     @PostConstruct
     public void start() {
         // 设置静态引用，供 CmppServerHandler 使用
         CmppServerHandler.setConnectionManager(connectionManager);
+        CmppServerHandler.setSmsRecordService(smsRecordService);
 
         bossGroup = new NioEventLoopGroup(serverConfig.getBossThreads());
         workerGroup = new NioEventLoopGroup(serverConfig.getWorkerThreads());

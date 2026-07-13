@@ -90,8 +90,12 @@
             </template>
           </el-table-column>
           <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip />
-          <el-table-column label="操作" width="150" fixed="right" align="center">
+          <el-table-column label="操作" width="200" fixed="right" align="center">
             <template #default="{ row }">
+              <el-button size="small" text type="success" @click="openTestSendDialog(row)">
+                <el-icon><Promotion /></el-icon>
+                测试
+              </el-button>
               <el-button size="small" text type="primary" @click="openEditDialog(row)">
                 <el-icon><Edit /></el-icon>
                 编辑
@@ -123,6 +127,44 @@
           />
         </div>
       </div>
+
+      <!-- 测试发送对话框 -->
+      <el-dialog
+        v-model="testDialogVisible"
+        title="通道测试发送"
+        width="500px"
+        destroy-on-close
+        class="channel-dialog"
+      >
+        <div class="test-send-form">
+          <div class="test-channel-info">
+            <el-tag effect="plain" type="info">{{ testForm.channelCode }}</el-tag>
+            <span class="test-channel-name">{{ testForm.channelName }}</span>
+          </div>
+          <el-form label-width="80px" style="margin-top: 16px">
+            <el-form-item label="手机号">
+              <el-input v-model="testForm.phone" placeholder="请输入测试手机号" clearable />
+            </el-form-item>
+            <el-form-item label="短信内容">
+              <el-input v-model="testForm.content" type="textarea" :rows="3" placeholder="请输入测试短信内容" />
+            </el-form-item>
+            <el-form-item label="源号码">
+              <el-input v-model="testForm.srcId" placeholder="选填，默认 10690000" clearable />
+            </el-form-item>
+          </el-form>
+          <div v-if="testResult" class="test-result" :class="testResult.success ? 'result-success' : 'result-error'">
+            <el-icon><component :is="testResult.success ? 'CircleCheck' : 'CircleClose'" /></el-icon>
+            <span>{{ testResult.message }}</span>
+            <span v-if="testResult.serverMsgId" class="server-msg-id">MsgId: {{ testResult.serverMsgId }}</span>
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="testDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="testSending" :disabled="!testForm.phone || !testForm.content" @click="handleTestSend">
+            发送测试
+          </el-button>
+        </template>
+      </el-dialog>
 
       <!-- 新增/编辑对话框 -->
       <el-dialog 
@@ -250,13 +292,19 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Plus, Refresh, InfoFilled, Lock, Setting, Loading, CircleCheck, CircleClose, Edit, Delete } from '@element-plus/icons-vue'
+import { Search, Plus, Refresh, InfoFilled, Lock, Setting, Loading, CircleCheck, CircleClose, Edit, Delete, Promotion } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { Channel } from '../types'
-import { getChannelList, createChannel, updateChannel, deleteChannel, enableChannel, disableChannel, getChannelPoolStatus, refreshChannels } from '../api/channel'
+import { getChannelList, createChannel, updateChannel, deleteChannel, enableChannel, disableChannel, getChannelPoolStatus, refreshChannels, testSendChannel } from '../api/channel'
 const loading = ref(false)
 const submitting = ref(false)
 const refreshing = ref(false)
+
+// 测试发送相关
+const testDialogVisible = ref(false)
+const testSending = ref(false)
+const testResult = ref<{ success: boolean; message: string; serverMsgId?: string } | null>(null)
+const testForm = reactive({ channelCode: '', channelName: '', phone: '', content: '', srcId: '' })
 const channelList = ref<(Channel & { _toggling?: boolean })[]>([])
 const total = ref(0)
 const currentPage = ref(1)
@@ -388,6 +436,36 @@ const handleRefreshChannels = async () => {
     ElMessage.error('刷新通道失败')
   } finally {
     refreshing.value = false
+  }
+}
+
+const openTestSendDialog = (row: Channel) => {
+  testForm.channelCode = row.code
+  testForm.channelName = row.name
+  testForm.phone = ''
+  testForm.content = ''
+  testForm.srcId = ''
+  testResult.value = null
+  testDialogVisible.value = true
+}
+
+const handleTestSend = async () => {
+  if (!testForm.phone || !testForm.content) return
+  testSending.value = true
+  testResult.value = null
+  try {
+    const res = await testSendChannel({
+      channelCode: testForm.channelCode,
+      phone: testForm.phone,
+      content: testForm.content,
+      srcId: testForm.srcId || undefined
+    })
+    testResult.value = { success: true, message: res.data.message, serverMsgId: res.data.serverMsgId }
+    ElMessage.success('测试短信发送成功')
+  } catch (e: any) {
+    testResult.value = { success: false, message: e?.message || '发送失败' }
+  } finally {
+    testSending.value = false
   }
 }
 

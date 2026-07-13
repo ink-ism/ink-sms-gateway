@@ -35,3 +35,5 @@ Thumbs.db
 deploy/
 *.tar.gz
 *.zip
+CmppClientTest.java
+handler_bytecode.txt

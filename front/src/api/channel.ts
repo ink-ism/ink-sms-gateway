@@ -47,3 +47,8 @@ export function getChannelPoolStatus() {
 export function refreshChannels() {
   return request.post<any, ApiResponse<string>>('/sms/channels/refresh')
 }
+
+/** 通道测试发送 */
+export function testSendChannel(data: { channelCode: string; phone: string; content: string; srcId?: string }) {
+  return request.post<any, ApiResponse<{ success: boolean; message: string; serverMsgId: string }>>('/sms/channels/test', data)
+}
