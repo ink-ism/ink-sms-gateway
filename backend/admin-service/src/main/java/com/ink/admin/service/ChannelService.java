@@ -8,12 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 通道配置服务类
@@ -158,60 +154,5 @@ public class ChannelService {
         }
         channelMapper.updateStatus(id, 0);
         log.info("通道禁用成功: id={}", id);
-    }
-
-    /**
-     * 测试单个通道的连接状态
-     */
-    public Map<String, Object> testConnection(Long id) {
-        Channel channel = channelMapper.findById(id);
-        if (channel == null) {
-            throw new BusinessException("通道不存在");
-        }
-        return doTcpTest(channel);
-    }
-
-    /**
-     * 批量测试所有通道的连接状态
-     */
-    public Map<Long, Map<String, Object>> testAllConnections(List<Long> ids) {
-        Map<Long, Map<String, Object>> results = new HashMap<>();
-        for (Long id : ids) {
-            Channel channel = channelMapper.findById(id);
-            if (channel != null) {
-                results.put(id, doTcpTest(channel));
-            }
-        }
-        return results;
-    }
-
-    /**
-     * TCP 连接测试
-     */
-    private Map<String, Object> doTcpTest(Channel channel) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("id", channel.getId());
-        result.put("code", channel.getCode());
-
-        if (channel.getStatus() != null && channel.getStatus() == 0) {
-            result.put("connected", false);
-            result.put("reason", "通道已禁用");
-            return result;
-        }
-
-        long start = System.currentTimeMillis();
-        try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(channel.getHost(), channel.getPort()), 2000);
-            long elapsed = System.currentTimeMillis() - start;
-            result.put("connected", true);
-            result.put("reason", "TCP连接成功");
-            result.put("latency", elapsed);
-        } catch (Exception e) {
-            long elapsed = System.currentTimeMillis() - start;
-            result.put("connected", false);
-            result.put("reason", e.getMessage() != null ? e.getMessage() : "连接失败");
-            result.put("latency", elapsed);
-        }
-        return result;
     }
 }

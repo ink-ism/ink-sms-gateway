@@ -97,21 +97,4 @@ public class ChannelController {
         channelService.disableChannel(id);
         return Result.success("通道已禁用");
     }
-
-    @Operation(summary = "检测单个通道连接状态")
-    @GetMapping("/{id}/connection-status")
-    public Result<Map<String, Object>> getConnectionStatus(@PathVariable @Parameter(description = "通道ID") Long id) {
-        Map<String, Object> status = channelService.testConnection(id);
-        return Result.success(status);
-    }
-
-    @Operation(summary = "批量检测所有通道连接状态")
-    @PostMapping("/connection-status-batch")
-    public Result<Map<String, Map<String, Object>>> getConnectionStatusBatch(@RequestBody List<Long> ids) {
-        Map<Long, Map<String, Object>> results = channelService.testAllConnections(ids);
-        // 转换 key 为 String 以兼容 JSON
-        Map<String, Map<String, Object>> data = new HashMap<>();
-        results.forEach((k, v) -> data.put(k.toString(), v));
-        return Result.success(data);
-    }
 }

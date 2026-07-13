@@ -38,14 +38,9 @@ export function disableChannel(id: number) {
   return request.put<any, ApiResponse<string>>(`/admin/channel/${id}/disable`)
 }
 
-/** 检测单个通道连接状态 */
-export function getConnectionStatus(id: number) {
-  return request.get<any, ApiResponse<{ id: number; connected: boolean; reason: string; latency: number }>>(`/admin/channel/${id}/connection-status`)
-}
-
-/** 批量检测通道连接状态 */
-export function getConnectionStatusBatch(ids: number[]) {
-  return request.post<any, ApiResponse<Record<string, { id: number; connected: boolean; reason: string; latency: number }>>>('/admin/channel/connection-status-batch', ids)
+/** 获取通道运行时连接池状态（按 channelCode 索引） */
+export function getChannelPoolStatus() {
+  return request.get<any, ApiResponse<Record<string, { channelCode: string; host: string; port: number; poolSize: number; connected: number }>>>('/sms/channels/status')
 }
 
 /** 刷新通道配置（重新加载CMPP连接） */

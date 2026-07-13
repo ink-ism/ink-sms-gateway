@@ -3,7 +3,7 @@ chcp 65001 >nul 2>&1
 setlocal enabledelayedexpansion
 
 echo ============================================
-echo   INK SMS Gateway - Build & Package
+echo   INK SMS Gateway - Build ^& Package
 echo ============================================
 echo.
 
@@ -11,8 +11,8 @@ set "PROJECT_ROOT=%~dp0"
 set "BACKEND_DIR=%PROJECT_ROOT%backend"
 set "FRONT_DIR=%PROJECT_ROOT%front"
 set "DEPLOY_DIR=%PROJECT_ROOT%deploy"
-set "TIMESTAMP=%date:~0,4%%date:~5,2%%date:~8,2%_%time:~0,2%%time:~3,2%%time:~6,2%"
-set "TIMESTAMP=%TIMESTAMP: =0%"
+:: Generate timestamp via PowerShell (avoids locale issues)
+for /f "delims=" %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd_HHmmss"') do set "TIMESTAMP=%%i"
 set "PACKAGE_NAME=ink-sms-gateway-%TIMESTAMP%"
 
 :: --------------------------------------------------
@@ -117,7 +117,7 @@ if %ERRORLEVEL% neq 0 (
 
 echo.
 echo ============================================
-echo   Build & Package Complete!
+echo   Build ^& Package Complete!
 echo ============================================
 echo.
 echo Package location:

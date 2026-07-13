@@ -1,86 +1,144 @@
 <template>
-  <AppLayout>
-    <div class="channels-page">
+  <div class="channels-page">
+      <!-- 页面头部 -->
       <div class="page-header">
-        <h2>通道管理</h2>
-        <div class="header-actions">
-          <el-input v-model="searchKeyword" placeholder="搜索通道名称/编码/地址" clearable style="width: 260px" @keyup.enter="loadChannels">
-            <template #prefix><el-icon><Search /></el-icon></template>
+        <div class="header-left">
+          <h2>通道管理</h2>
+          <el-tag class="count-badge" effect="dark" round>共 {{ total }} 个通道</el-tag>
+        </div>
+        <div class="header-right">
+          <el-input 
+            v-model="searchKeyword" 
+            placeholder="搜索通道名称/编码/地址" 
+            clearable 
+            class="search-input"
+            @keyup.enter="loadChannels"
+            @clear="loadChannels"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
           </el-input>
           <el-button :loading="refreshing" @click="handleRefreshChannels">
-            <el-icon><Refresh /></el-icon> 刷新通道
+            <el-icon><Refresh /></el-icon>
+            刷新通道
           </el-button>
           <el-button type="primary" @click="openCreateDialog">
-            <el-icon><Plus /></el-icon> 新增通道
+            <el-icon><Plus /></el-icon>
+            新增通道
           </el-button>
         </div>
       </div>
 
-      <el-table :data="channelList" v-loading="loading" stripe border style="width: 100%">
-        <el-table-column prop="code" label="通道编码" width="120" />
-        <el-table-column prop="name" label="通道名称" width="140" />
-        <el-table-column label="连接地址" width="180">
-          <template #default="{ row }">{{ row.host }}:{{ row.port }}</template>
-        </el-table-column>
-        <el-table-column prop="spId" label="SP代码" width="100" />
-        <el-table-column label="CMPP版本" width="100">
-          <template #default="{ row }">0x{{ row.version?.toString(16).toUpperCase().padStart(2, '0') }}</template>
-        </el-table-column>
-        <el-table-column prop="heartbeatInterval" label="心跳(s)" width="80" align="center" />
-        <el-table-column prop="maxConcurrent" label="最大并发" width="80" align="center" />
-        <el-table-column label="启用状态" width="90" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
-              {{ row.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="连接状态" width="140" align="center">
-          <template #default="{ row }">
-            <span v-if="statusMap[row.id]?.loading" class="status-loading">
-              <el-icon class="is-loading"><Loading /></el-icon>
-            </span>
-            <template v-else-if="statusMap[row.id]">
-              <el-tag v-if="statusMap[row.id].connected" type="success" size="small" effect="plain">
-                <el-icon style="vertical-align: middle"><CircleCheck /></el-icon> 已连接
-                <span class="latency-text">{{ statusMap[row.id].latency }}ms</span>
-              </el-tag>
-              <el-tooltip v-else :content="statusMap[row.id].reason" placement="top">
-                <el-tag type="danger" size="small" effect="plain">
-                  <el-icon style="vertical-align: middle"><CircleClose /></el-icon> 未连接
-                </el-tag>
-              </el-tooltip>
+      <!-- 通道表格 -->
+      <div class="table-card">
+        <el-table 
+          :data="channelList" 
+          v-loading="loading" 
+          class="custom-table"
+          :header-cell-style="headerCellStyle"
+        >
+          <el-table-column prop="code" label="通道编码" width="120">
+            <template #default="{ row }">
+              <span class="code-cell">{{ row.code }}</span>
             </template>
-            <span v-else class="status-unknown">—</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip />
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
-            <el-button size="small" :type="row.status === 1 ? 'warning' : 'success'" @click="toggleStatus(row)">
-              {{ row.status === 1 ? '禁用' : '启用' }}
-            </el-button>
-            <el-popconfirm title="确定删除该通道？" @confirm="handleDelete(row.id)">
-              <template #reference>
-                <el-button size="small" type="danger">删除</el-button>
-              </template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
+          </el-table-column>
+          <el-table-column prop="name" label="通道名称" width="130" />
+          <el-table-column label="连接地址" width="170">
+            <template #default="{ row }">
+              <span class="address-cell">{{ row.host }}:{{ row.port }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="spId" label="SP代码" width="100" />
+          <el-table-column label="CMPP版本" width="100">
+            <template #default="{ row }">
+              <el-tag size="small" type="info" effect="plain">
+                v{{ row.version === 32 ? '2.0' : '2.1' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="maxConcurrent" label="并发数" width="80" align="center" />
+          <el-table-column label="启用状态" width="100" align="center">
+            <template #default="{ row }">
+              <el-switch
+                :model-value="row.status === 1"
+                @change="toggleStatus(row)"
+                :loading="row._toggling"
+                size="small"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column label="连接状态" width="150" align="center">
+            <template #default="{ row }">
+              <div class="status-cell">
+                <span v-if="statusMap[row.code]?.loading" class="status-loading">
+                  <span class="loading-dot"></span>
+                  检测中
+                </span>
+                <template v-else-if="statusMap[row.code]">
+                  <div v-if="statusMap[row.code].connected > 0" class="status-connected">
+                    <span class="status-dot pulse-dot"></span>
+                    <span>{{ statusMap[row.code].connected }}/{{ statusMap[row.code].poolSize }}</span>
+                  </div>
+                  <div v-else class="status-disconnected">
+                    <span class="status-dot"></span>
+                    <span>未连接</span>
+                  </div>
+                </template>
+                <span v-else class="status-unknown">—</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip />
+          <el-table-column label="操作" width="150" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-button size="small" text type="primary" @click="openEditDialog(row)">
+                <el-icon><Edit /></el-icon>
+                编辑
+              </el-button>
+              <el-popconfirm title="确定删除该通道？" @confirm="handleDelete(row.id)">
+                <template #reference>
+                  <el-button size="small" text type="danger">
+                    <el-icon><Delete /></el-icon>
+                    删除
+                  </el-button>
+                </template>
+              </el-popconfirm>
+            </template>
+          </el-table-column>
+        </el-table>
 
-      <div class="pagination-wrapper">
-        <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :total="total" :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next, jumper" @size-change="handlePageChange" @current-change="handlePageChange" />
+        <!-- 分页 -->
+        <div class="pagination-wrapper">
+          <el-pagination 
+            v-model:current-page="currentPage" 
+            v-model:page-size="pageSize" 
+            :total="total" 
+            :page-sizes="[10, 20, 50]" 
+            layout="total, sizes, prev, pager, next, jumper" 
+            @size-change="handlePageChange" 
+            @current-change="handlePageChange"
+            background
+            small
+          />
+        </div>
       </div>
 
       <!-- 新增/编辑对话框 -->
-      <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑通道' : '新增通道'" width="720px" destroy-on-close>
+      <el-dialog 
+        v-model="dialogVisible" 
+        :title="isEdit ? '编辑通道' : '新增通道'" 
+        width="720px" 
+        destroy-on-close
+        class="channel-dialog"
+      >
         <el-form ref="formRef" :model="formData" :rules="formRules" label-width="110px" label-position="right" class="channel-form">
-
           <!-- 基础信息 -->
           <div class="form-section">
-            <div class="section-title"><el-icon><InfoFilled /></el-icon> 基础信息</div>
+            <div class="section-title">
+              <el-icon><InfoFilled /></el-icon>
+              基础信息
+            </div>
             <el-row :gutter="20">
               <el-col :span="12">
                 <el-form-item label="通道编码" prop="code">
@@ -109,7 +167,10 @@
 
           <!-- 认证配置 -->
           <div class="form-section">
-            <div class="section-title"><el-icon><Lock /></el-icon> 认证配置</div>
+            <div class="section-title">
+              <el-icon><Lock /></el-icon>
+              认证配置
+            </div>
             <el-row :gutter="20">
               <el-col :span="12">
                 <el-form-item label="SP企业代码" prop="spId">
@@ -126,7 +187,10 @@
 
           <!-- 协议与性能参数 -->
           <div class="form-section">
-            <div class="section-title"><el-icon><Setting /></el-icon> 协议与性能参数</div>
+            <div class="section-title">
+              <el-icon><Setting /></el-icon>
+              协议与性能参数
+            </div>
             <el-row :gutter="20">
               <el-col :span="12">
                 <el-form-item label="CMPP版本" prop="version">
@@ -165,11 +229,6 @@
                   <el-input-number v-model="formData.connectTimeout" :min="1000" :max="30000" :step="500" controls-position="right" style="width: 100%" />
                 </el-form-item>
               </el-col>
-              <el-col :span="12">
-                <el-form-item label="状态">
-                  <el-switch v-model="formData.status" :active-value="1" :inactive-value="0" active-text="启用" inactive-text="禁用" />
-                </el-form-item>
-              </el-col>
             </el-row>
           </div>
 
@@ -186,29 +245,33 @@
         </template>
       </el-dialog>
     </div>
-  </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Plus, Refresh, InfoFilled, Lock, Setting, Loading, CircleCheck, CircleClose } from '@element-plus/icons-vue'
+import { Search, Plus, Refresh, InfoFilled, Lock, Setting, Loading, CircleCheck, CircleClose, Edit, Delete } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { Channel } from '../types'
-import { getChannelList, createChannel, updateChannel, deleteChannel, enableChannel, disableChannel, getConnectionStatusBatch, refreshChannels } from '../api/channel'
-import AppLayout from '../components/AppLayout.vue'
-
+import { getChannelList, createChannel, updateChannel, deleteChannel, enableChannel, disableChannel, getChannelPoolStatus, refreshChannels } from '../api/channel'
 const loading = ref(false)
 const submitting = ref(false)
 const refreshing = ref(false)
-const channelList = ref<Channel[]>([])
+const channelList = ref<(Channel & { _toggling?: boolean })[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const searchKeyword = ref('')
 
-/** 连接状态: { [id]: { connected, reason, latency, loading } } */
-const statusMap = reactive<Record<number, { connected: boolean; reason: string; latency: number; loading: boolean }>>({})
+const headerCellStyle = {
+  background: '#f8fafc',
+  color: '#374151',
+  fontWeight: '600',
+  fontSize: '13px'
+}
+
+/** 连接池状态: { [channelCode]: { connected, poolSize, loading } } */
+const statusMap = reactive<Record<string, { connected: number; poolSize: number; loading: boolean }>>({})
 let statusTimer: ReturnType<typeof setInterval> | null = null
 
 const dialogVisible = ref(false)
@@ -241,23 +304,27 @@ const loadChannels = async () => {
     total.value = res.data.total
   } catch { /* handled by interceptor */ }
   loading.value = false
-  // 加载完后自动检测连接状态
   checkAllConnectionStatus()
 }
 
-/** 批量检测当前页所有通道的连接状态 */
+/** 获取所有通道的运行时连接池状态 */
 const checkAllConnectionStatus = async () => {
-  const ids = channelList.value.map(c => c.id)
-  if (ids.length === 0) return
-  ids.forEach(id => { statusMap[id] = { connected: false, reason: '', latency: 0, loading: true } })
+  const channels = channelList.value
+  if (channels.length === 0) return
+  channels.forEach(c => { statusMap[c.code] = { connected: 0, poolSize: 0, loading: true } })
   try {
-    const res = await getConnectionStatusBatch(ids)
-    Object.entries(res.data).forEach(([idStr, status]) => {
-      const id = Number(idStr)
-      statusMap[id] = { connected: status.connected, reason: status.reason, latency: status.latency, loading: false }
+    const res = await getChannelPoolStatus()
+    Object.entries(res.data).forEach(([code, status]) => {
+      statusMap[code] = { connected: status.connected, poolSize: status.poolSize, loading: false }
+    })
+    // 对未出现在返回结果中的通道标记为未连接
+    channels.forEach(c => {
+      if (!res.data[c.code]) {
+        statusMap[c.code] = { connected: 0, poolSize: 0, loading: false }
+      }
     })
   } catch {
-    ids.forEach(id => { statusMap[id] = { connected: false, reason: '检测失败', latency: 0, loading: false } })
+    channels.forEach(c => { statusMap[c.code] = { connected: 0, poolSize: 0, loading: false } })
   }
 }
 
@@ -324,22 +391,25 @@ const handleRefreshChannels = async () => {
   }
 }
 
-const toggleStatus = async (row: Channel) => {
+const toggleStatus = async (row: Channel & { _toggling?: boolean }) => {
+  row._toggling = true
   try {
     if (row.status === 1) {
       await disableChannel(row.id)
       ElMessage.success('通道已禁用')
+      row.status = 0
     } else {
       await enableChannel(row.id)
       ElMessage.success('通道已启用')
+      row.status = 1
     }
-    loadChannels()
+    checkAllConnectionStatus()
   } catch { /* handled by interceptor */ }
+  row._toggling = false
 }
 
 onMounted(() => {
   loadChannels()
-  // 每 30 秒自动刷新连接状态
   statusTimer = setInterval(checkAllConnectionStatus, 30000)
 })
 
@@ -349,46 +419,254 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.channels-page { padding: 0; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.page-header h2 { margin: 0; font-size: 18px; color: #333; }
-.header-actions { display: flex; gap: 12px; }
-.pagination-wrapper { display: flex; justify-content: flex-end; margin-top: 16px; }
+.channels-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 页面头部 */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+  padding: 20px 24px;
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-left h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.count-badge {
+  background: linear-gradient(135deg, var(--primary-color) 0%, #6366f1 100%);
+  border: none;
+  font-weight: 500;
+}
+
+.header-right {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.search-input {
+  width: 240px;
+}
+
+.search-input :deep(.el-input__wrapper) {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--border-color);
+  transition: all var(--transition-normal) ease;
+}
+
+.search-input :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px var(--primary-light);
+}
+
+.search-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+/* 表格卡片 */
+.table-card {
+  background: var(--bg-card);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+/* 自定义表格 */
+.custom-table {
+  --el-table-border-color: #f1f5f9;
+}
+
+.custom-table :deep(.el-table__header) {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.custom-table :deep(.el-table__row) {
+  transition: all var(--transition-normal) ease;
+}
+
+.custom-table :deep(.el-table__row:hover > td) {
+  background: #f8fafc !important;
+}
+
+.code-cell {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 12px;
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #475569;
+}
+
+.address-cell {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* 状态单元格 */
+.status-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-loading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.status-connected {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status-disconnected {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ef4444;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+.pulse-dot {
+  background: #10b981;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.9);
+  }
+}
+
+.status-unknown {
+  color: #d1d5db;
+}
+
+/* 分页 */
+.pagination-wrapper {
+  padding: 20px 24px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #f1f5f9;
+}
+
+.pagination-wrapper :deep(.el-pagination) {
+  --el-pagination-button-bg-color: #f8fafc;
+}
+
+.pagination-wrapper :deep(.el-pager li) {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.pagination-wrapper :deep(.el-pager li.is-active) {
+  background: linear-gradient(135deg, var(--primary-color) 0%, #6366f1 100%);
+  color: white;
+}
+
+/* 对话框 */
+.channel-dialog :deep(.el-dialog__header) {
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 16px;
+}
+
+.channel-dialog :deep(.el-dialog__body) {
+  padding: 24px;
+}
 
 /* 表单分组样式 */
-.channel-form :deep(.el-form-item) { margin-bottom: 14px; }
+.channel-form :deep(.el-form-item) { 
+  margin-bottom: 14px; 
+}
+
 .form-section {
-  background: #fafafa;
-  border: 1px solid #ebeef5;
-  border-radius: 6px;
-  padding: 16px 20px 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px 12px;
   margin-bottom: 16px;
 }
+
 .form-section:last-child {
   margin-bottom: 0;
 }
+
 .section-title {
   font-size: 14px;
   font-weight: 600;
   color: #303133;
-  margin-bottom: 14px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #ebeef5;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-.section-title .el-icon {
-  color: #409eff;
-  font-size: 15px;
+  gap: 8px;
 }
 
-/* 连接状态样式 */
-.status-loading { color: #909399; font-size: 16px; }
-.status-unknown { color: #c0c4cc; }
-.latency-text {
-  font-size: 11px;
-  color: #67c23a;
-  margin-left: 2px;
+.section-title .el-icon {
+  color: var(--primary-color);
+  font-size: 16px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .header-right {
+    flex-wrap: wrap;
+  }
+  
+  .search-input {
+    width: 100%;
+  }
 }
 </style>
