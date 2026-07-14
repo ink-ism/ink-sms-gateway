@@ -300,7 +300,7 @@
   "message": "操作成功",
   "data": {
     "gateway": "running",
-    "port": "8080",
+    "port": "8001",
     "timestamp": 1720000000000
   },
   "timestamp": 1720000000000
@@ -327,6 +327,219 @@
   "timestamp": 1720000000000
 }
 ```
+
+---
+
+## 管理服务接口
+
+### POST /api/admin/login — 管理员登录
+
+**认证**：否
+
+**请求体**（JSON）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `username` | string | 是 | 用户名 |
+| `password` | string | 是 | 密码 |
+
+**成功响应**：
+
+```json
+{
+  "code": 200,
+  "message": "登录成功",
+  "data": {
+    "adminId": 1,
+    "username": "admin",
+    "token": "eyJhbGciOi...",
+    "role": "SUPER_ADMIN"
+  },
+  "timestamp": 1720000000000
+}
+```
+
+---
+
+### POST /api/admin/logout — 管理员登出
+
+**认证**：是（需 `X-Admin-Id` 请求头）
+
+---
+
+### GET /api/admin/info — 获取管理员信息
+
+**认证**：是（需 `X-Admin-Id` 请求头）
+
+---
+
+### PUT /api/admin/info — 更新管理员信息
+
+**认证**：是（需 `X-Admin-Id` 请求头）
+
+**请求体**（JSON）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `username` | string | 否 | 用户名 |
+| `email` | string | 否 | 邮箱 |
+| `phone` | string | 否 | 手机号 |
+| `nickname` | string | 否 | 昵称 |
+| `avatar` | string | 否 | 头像 URL |
+| `role` | string | 否 | 角色 |
+
+---
+
+### PUT /api/admin/password — 修改密码
+
+**认证**：是（需 `X-Admin-Id` 请求头）
+
+**请求体**（JSON）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `oldPassword` | string | 是 | 旧密码 |
+| `newPassword` | string | 是 | 新密码（6-20 字符） |
+
+---
+
+### GET /api/admin/list — 获取管理员列表
+
+**认证**：是
+
+**查询参数**：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `page` | int | 1 | 页码 |
+| `size` | int | 10 | 每页大小 |
+
+---
+
+### GET /api/admin/count — 获取管理员总数
+
+**认证**：是
+
+---
+
+### PUT /api/admin/{adminId}/disable — 禁用管理员
+
+**认证**：是
+
+---
+
+### PUT /api/admin/{adminId}/enable — 启用管理员
+
+**认证**：是
+
+---
+
+### POST /api/admin/create — 创建管理员
+
+**认证**：是（需 `X-Admin-Id` 请求头）
+
+**请求体**（JSON）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `username` | string | 是 | 用户名（3-20 字符） |
+| `password` | string | 是 | 密码（6-20 字符） |
+| `email` | string | 否 | 邮箱 |
+| `phone` | string | 否 | 手机号 |
+| `role` | string | 否 | 角色 |
+
+---
+
+## 通道管理接口
+
+### GET /api/admin/channel/list — 获取通道列表
+
+**认证**：是
+
+**查询参数**：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `page` | int | 1 | 页码 |
+| `size` | int | 10 | 每页大小 |
+| `keyword` | string | - | 搜索关键字 |
+
+---
+
+### GET /api/admin/channel/{id} — 获取通道详情
+
+**认证**：是
+
+---
+
+### POST /api/admin/channel — 创建通道
+
+**认证**：是
+
+**请求体**（JSON）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `channelCode` | string | 是 | 通道编码 |
+| `channelName` | string | 是 | 通道名称 |
+| `host` | string | 是 | 服务器地址 |
+| `port` | int | 是 | 服务器端口 |
+| `spId` | string | 是 | SP 标识 |
+| `sharedSecret` | string | 是 | 共享密钥 |
+
+---
+
+### PUT /api/admin/channel/{id} — 更新通道
+
+**认证**：是
+
+---
+
+### DELETE /api/admin/channel/{id} — 删除通道
+
+**认证**：是
+
+---
+
+### PUT /api/admin/channel/{id}/enable — 启用通道
+
+**认证**：是
+
+---
+
+### PUT /api/admin/channel/{id}/disable — 禁用通道
+
+**认证**：是
+
+---
+
+## 短信记录接口
+
+### GET /api/admin/sms/down/list — 下行短信列表
+
+**认证**：是
+
+**查询参数**：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `page` | int | 1 | 页码 |
+| `size` | int | 10 | 每页大小 |
+| `keyword` | string | - | 搜索关键字（手机号/内容） |
+
+---
+
+### GET /api/admin/sms/up/list — 上行短信列表
+
+**认证**：是
+
+**查询参数**：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `page` | int | 1 | 页码 |
+| `size` | int | 10 | 每页大小 |
+| `keyword` | string | - | 搜索关键字（手机号/内容） |
 
 ---
 

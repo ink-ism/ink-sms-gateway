@@ -37,3 +37,4 @@ deploy/
 *.zip
 CmppClientTest.java
 handler_bytecode.txt
+ssh_pass.cmd

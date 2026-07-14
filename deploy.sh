@@ -21,15 +21,15 @@ PID_DIR="$APP_HOME/pids"
 mkdir -p "$LOG_DIR" "$PID_DIR"
 
 # JVM 参数（按服务器内存酌情调整）
-JVM_OPTS="-server -Xms256m -Xmx512m -XX:+UseG1GC"
+JVM_OPTS="-server -Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxMetaspaceSize=128m"
 JVM_OPTS="$JVM_OPTS -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8"
 
 # ---- 服务定义：名称|端口|jar文件名|conf文件名 ----
 declare -a SERVICES=(
-  "gateway|8080|gateway.jar|gateway-application.yml"
-  "user-service|8081|user-service.jar|user-service-application.yml"
-  "admin-service|8082|admin-service.jar|admin-service-application.yml"
-  "api|8083|api.jar|api-application.yml"
+  "gateway|8001|gateway.jar|gateway-application.yml"
+  "user-service|8002|user-service.jar|user-service-application.yml"
+  "admin-service|8003|admin-service.jar|admin-service-application.yml"
+  "api|8004|api.jar|api-application.yml"
 )
 
 # ---- 工具函数 ----
