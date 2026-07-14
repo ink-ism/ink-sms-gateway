@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * CMPP Connect 请求消息
- * 消息体：SourceAddr(6) + AuthenticatorClient(16) + Version(1) + Timestamp(4) = 27 字节
+ * 消息体：SourceAddr(6) + AuthenticatorClient(16) + Version(1) + Timestamp(10) = 33 字节
  */
 @Data
 public class CmppConnectRequestMessage {
@@ -41,7 +41,7 @@ public class CmppConnectRequestMessage {
      * 序列化为字节数组
      */
     public byte[] toBytes() {
-        byte[] body = new byte[27];
+        byte[] body = new byte[33];
 
         // SourceAddr (6 bytes)
         byte[] spIdBytes = sourceAddr.getBytes(StandardCharsets.US_ASCII);
@@ -55,9 +55,9 @@ public class CmppConnectRequestMessage {
         // Version (1 byte)
         body[22] = version;
 
-        // Timestamp (4 bytes - MMDDHHMMSS as int)
+        // Timestamp (10 bytes - MMDDHHMMSS ASCII)
         byte[] tsBytes = timestamp.getBytes(StandardCharsets.US_ASCII);
-        System.arraycopy(tsBytes, 0, body, 23, Math.min(tsBytes.length, 4));
+        System.arraycopy(tsBytes, 0, body, 23, Math.min(tsBytes.length, 10));
 
         return body;
     }
@@ -81,9 +81,9 @@ public class CmppConnectRequestMessage {
         // Version (1 byte)
         msg.setVersion(body[22]);
 
-        // Timestamp (4 bytes)
-        byte[] tsBytes = new byte[4];
-        System.arraycopy(body, 23, tsBytes, 0, 4);
+        // Timestamp (10 bytes)
+        byte[] tsBytes = new byte[10];
+        System.arraycopy(body, 23, tsBytes, 0, 10);
         msg.setTimestamp(new String(tsBytes, StandardCharsets.US_ASCII).trim());
 
         return msg;

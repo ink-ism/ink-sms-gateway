@@ -14,22 +14,22 @@
 # ---- 路径与参数 ----
 APP_HOME="$(cd "$(dirname "$0")/.." && pwd)"
 LIB_DIR="$APP_HOME/lib"
-CONF_DIR="$APP_HOME/conf"
 LOG_DIR="$APP_HOME/logs"
 PID_DIR="$APP_HOME/pids"
 
 mkdir -p "$LOG_DIR" "$PID_DIR"
 
 # JVM 参数（按服务器内存酌情调整）
-JVM_OPTS="-server -Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxMetaspaceSize=128m"
+JVM_OPTS="-server -Xms96m -Xmx192m -XX:+UseG1GC -XX:MaxMetaspaceSize=128m -XX:MaxRAM=384m"
 JVM_OPTS="$JVM_OPTS -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8"
+JVM_OPTS="$JVM_OPTS -Dspring.profiles.active=prod"
 
-# ---- 服务定义：名称|端口|jar文件名|conf文件名 ----
+# ---- 服务定义：名称|端口|jar文件名 ----
 declare -a SERVICES=(
-  "gateway|8001|gateway.jar|gateway-application.yml"
-  "user-service|8002|user-service.jar|user-service-application.yml"
-  "admin-service|8003|admin-service.jar|admin-service-application.yml"
-  "api|8004|api.jar|api-application.yml"
+  "gateway|8001|gateway.jar"
+  "user-service|8002|user-service.jar"
+  "admin-service|8003|admin-service.jar"
+  "api|8004|api.jar"
 )
 
 # ---- 工具函数 ----
@@ -59,9 +59,8 @@ wait_for_port() {
 
 # ---- 核心操作 ----
 do_start() {
-  local name="$1" port="$2" jar="$3" conf="$4"
+  local name="$1" port="$2" jar="$3"
   local jar_path="$LIB_DIR/$jar"
-  local conf_path="$CONF_DIR/$conf"
   local log_file="$LOG_DIR/${name}.log"
   local pid_file
   pid_file="$(get_pid_file "$name")"
@@ -78,15 +77,8 @@ do_start() {
 
   log_info "Starting $name (port $port)..."
 
-  # 如果 conf 目录有覆盖配置，通过 --spring.config.location 注入
-  local config_arg=""
-  if [ -f "$conf_path" ]; then
-    config_arg="--spring.config.location=file:$conf_path"
-  fi
-
   nohup java $JVM_OPTS \
     -jar "$jar_path" \
-    $config_arg \
     >> "$log_file" 2>&1 &
 
   local pid=$!
@@ -137,7 +129,7 @@ do_status() {
   printf "\n%-20s %-8s %-10s %s\n" "SERVICE" "PORT" "STATUS" "PID"
   printf "%-20s %-8s %-10s %s\n" "-------" "----" "------" "---"
   for entry in "${SERVICES[@]}"; do
-    IFS='|' read -r name port jar conf <<< "$entry"
+    IFS='|' read -r name port jar <<< "$entry"
     local pid_file
     pid_file="$(get_pid_file "$name")"
     if is_running "$name"; then
@@ -172,9 +164,9 @@ run_for_services() {
   local action_fn="$1" target="$2"
   local found=0
   for entry in "${SERVICES[@]}"; do
-    IFS='|' read -r name port jar conf <<< "$entry"
+    IFS='|' read -r name port jar <<< "$entry"
     if [ -z "$target" ] || [ "$target" = "$name" ]; then
-      $action_fn "$name" "$port" "$jar" "$conf"
+      $action_fn "$name" "$port" "$jar"
       found=1
     fi
   done

@@ -1,0 +1,11 @@
+# 生产环境配置 - 覆盖 application.yml 中的本地默认值
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 100.101.92.2:8848
+
+logging:
+  level:
+    com.ink: INFO
+    io.netty: INFO

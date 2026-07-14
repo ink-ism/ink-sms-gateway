@@ -1,0 +1,16 @@
+# 开发环境配置
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+    data:
+      redis:
+        host: localhost
+        port: 6379
+
+logging:
+  level:
+    com.ink.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    reactor.netty.http.server: DEBUG

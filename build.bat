@@ -75,11 +75,11 @@ copy "%BACKEND_DIR%\user-service\target\user-service-1.0.0-SNAPSHOT.jar" "%DEPLO
 copy "%BACKEND_DIR%\admin-service\target\admin-service-1.0.0-SNAPSHOT.jar" "%DEPLOY_DIR%\%PACKAGE_NAME%\lib\admin-service.jar" >nul 2>&1
 copy "%BACKEND_DIR%\api\target\api-1.0.0-SNAPSHOT.jar"               "%DEPLOY_DIR%\%PACKAGE_NAME%\lib\api.jar"           >nul 2>&1
 
-:: Copy application.yml files (for easy override on server)
-copy "%BACKEND_DIR%\gateway\src\main\resources\application.yml"      "%DEPLOY_DIR%\%PACKAGE_NAME%\conf\gateway-application.yml"       >nul 2>&1
-copy "%BACKEND_DIR%\user-service\src\main\resources\application.yml" "%DEPLOY_DIR%\%PACKAGE_NAME%\conf\user-service-application.yml" >nul 2>&1
-copy "%BACKEND_DIR%\admin-service\src\main\resources\application.yml" "%DEPLOY_DIR%\%PACKAGE_NAME%\conf\admin-service-application.yml" >nul 2>&1
-copy "%BACKEND_DIR%\api\src\main\resources\application.yml"          "%DEPLOY_DIR%\%PACKAGE_NAME%\conf\api-application.yml"           >nul 2>&1
+:: Copy application yml files (for reference/override on server)
+for %%s in (gateway user-service admin-service api) do (
+  copy "%BACKEND_DIR%\%%s\src\main\resources\application.yml"      "%DEPLOY_DIR%\%PACKAGE_NAME%\conf\%%s-application.yml"       >nul 2>&1
+  copy "%BACKEND_DIR%\%%s\src\main\resources\application-prod.yml" "%DEPLOY_DIR%\%PACKAGE_NAME%\conf\%%s-application-prod.yml" >nul 2>&1
+)
 
 :: Copy frontend dist
 xcopy "%FRONT_DIR%\dist\*" "%DEPLOY_DIR%\%PACKAGE_NAME%\web\" /s /e /q /y >nul 2>&1

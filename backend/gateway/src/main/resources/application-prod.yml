@@ -1,0 +1,17 @@
+# 生产环境配置 - 覆盖 application.yml 中的本地默认值
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 100.101.92.2:8848
+    data:
+      redis:
+        host: 100.101.92.2
+        port: 6378
+        password: ${REDIS_PASSWORD}
+
+logging:
+  level:
+    com.ink.gateway: INFO
+    org.springframework.cloud.gateway: INFO
+    reactor.netty.http.server: INFO
