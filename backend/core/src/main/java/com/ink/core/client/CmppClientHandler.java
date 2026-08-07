@@ -3,8 +3,6 @@ package com.ink.core.client;
 import com.ink.channel.cmpp.CmppCommandType;
 import com.ink.channel.cmpp.CmppConstants;
 import com.ink.channel.cmpp.CmppMessage;
-import com.ink.channel.cmpp.codec.CmppPacketDecoder;
-import com.ink.channel.cmpp.codec.CmppPacketEncoder;
 import com.ink.channel.cmpp.message.CmppConnectRequestMessage;
 import com.ink.channel.cmpp.message.CmppConnectResponseMessage;
 import com.ink.channel.cmpp.message.CmppActiveTestRequestMessage;

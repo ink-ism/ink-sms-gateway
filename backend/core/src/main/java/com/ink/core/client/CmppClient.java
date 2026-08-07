@@ -2,7 +2,6 @@ package com.ink.core.client;
 
 import com.ink.core.config.CmppChannelConfig;
 import com.ink.core.handler.CmppMessageHandler;
-import com.ink.core.connection.CmppConnectionManager;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
