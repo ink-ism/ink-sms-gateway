@@ -15,6 +15,7 @@ work/
 *.ipr
 *.iws
 .vscode/
+.qoder/
 
 # Node
 front/node_modules/
