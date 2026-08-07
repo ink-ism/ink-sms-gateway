@@ -16,6 +16,7 @@ work/
 *.iws
 .vscode/
 .qoder/
+.mvn/
 
 # Node
 front/node_modules/
