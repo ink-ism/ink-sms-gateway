@@ -1,0 +1,158 @@
+/**
+ * 统一动画库：页面切换、卡片入场、状态呼吸灯、光晕脉冲
+ */
+
+/* 页面切换过渡（router-view transition name="page-fade"） */
+.page-fade-enter-active {
+  animation: pageFadeIn var(--transition-normal) ease-out;
+}
+
+.page-fade-leave-active {
+  animation: pageFadeOut var(--transition-normal) ease-in;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pageFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+/* 卡片入场（配合 stagger-delay 使用） */
+.card-enter {
+  animation: cardSlideUp 0.45s ease-out both;
+}
+
+.stagger-delay:nth-child(1) { animation-delay: 0.04s; }
+.stagger-delay:nth-child(2) { animation-delay: 0.08s; }
+.stagger-delay:nth-child(3) { animation-delay: 0.12s; }
+.stagger-delay:nth-child(4) { animation-delay: 0.16s; }
+.stagger-delay:nth-child(5) { animation-delay: 0.2s; }
+.stagger-delay:nth-child(6) { animation-delay: 0.24s; }
+
+@keyframes cardSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 状态呼吸灯 */
+.pulse-dot {
+  position: relative;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.pulse-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  animation: dotRipple 2s ease-out infinite;
+}
+
+.pulse-dot.dot-online {
+  background: var(--success);
+  box-shadow: var(--glow-success);
+}
+
+.pulse-dot.dot-online::after {
+  border: 1px solid rgba(0, 255, 163, 0.5);
+}
+
+.pulse-dot.dot-offline {
+  background: var(--danger);
+  box-shadow: var(--glow-danger);
+}
+
+.pulse-dot.dot-offline::after {
+  border: 1px solid rgba(255, 77, 109, 0.5);
+}
+
+.pulse-dot.dot-loading {
+  background: var(--accent);
+  box-shadow: var(--glow-accent);
+  animation: dotBreath 1s ease-in-out infinite;
+}
+
+.pulse-dot.dot-loading::after {
+  border: 1px solid rgba(34, 211, 238, 0.5);
+}
+
+.pulse-dot.dot-disabled {
+  background: var(--text-muted);
+}
+
+@keyframes dotRipple {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes dotBreath {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+}
+
+/* 通用脉冲（加载指示） */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* 浮动（氛围装饰） */
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -30px) scale(1.05);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+}
+
+/* 背景缓慢渐变流动 */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}

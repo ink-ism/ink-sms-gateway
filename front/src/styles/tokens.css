@@ -1,0 +1,62 @@
+/**
+ * INK OPS 暗色运维风 Design Token 体系
+ * 所有页面样式必须引用本文件变量，禁止硬编码颜色
+ */
+:root {
+  /* 背景层级 */
+  --bg-base: #070b14;        /* 页面底色 */
+  --bg-panel: #0d1424;       /* 卡片/面板 */
+  --bg-elevated: #131d33;    /* 悬浮层/表头/输入框底 */
+  --bg-hover: rgba(34, 211, 238, 0.06);
+
+  /* 霓虹强调色 */
+  --accent: #22d3ee;                    /* 主色-青 */
+  --accent-strong: #06b6d4;
+  --accent-soft: rgba(34, 211, 238, 0.12);
+  --accent-glow: rgba(34, 211, 238, 0.35);
+  --success: #00ffa3;                   /* 在线/成功-荧光绿 */
+  --success-soft: rgba(0, 255, 163, 0.12);
+  --warning: #fbbf24;                   /* 警告-琥珀 */
+  --warning-soft: rgba(251, 191, 36, 0.12);
+  --danger: #ff4d6d;                    /* 离线/危险-霓虹红 */
+  --danger-soft: rgba(255, 77, 109, 0.12);
+  --violet: #a78bfa;                    /* 辅助-紫 */
+  --violet-soft: rgba(167, 139, 250, 0.12);
+
+  /* 文本三级色 */
+  --text-primary: #e6edf7;
+  --text-secondary: #8b9bb4;
+  --text-muted: #55647e;
+
+  /* 边框 */
+  --border-color: #1b2740;
+  --border-light: #141e35;
+  --border-glow: rgba(34, 211, 238, 0.35);
+
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* 阴影与光晕 */
+  --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lift: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --glow-accent: 0 0 18px rgba(34, 211, 238, 0.25);
+  --glow-success: 0 0 12px rgba(0, 255, 163, 0.4);
+  --glow-danger: 0 0 12px rgba(255, 77, 109, 0.4);
+
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* 过渡时长 */
+  --transition-fast: 0.15s;
+  --transition-normal: 0.3s;
+  --transition-slow: 0.5s;
+
+  /* 字体 */
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'SF Mono', Consolas, monospace;
+}

@@ -1,37 +1,31 @@
 <template>
   <div class="login-page">
-    <!-- 背景动态渐变 -->
-    <div class="bg-gradient"></div>
-    
-    <!-- 装饰元素 -->
+    <!-- 氛围装饰 -->
     <div class="decoration decoration-1"></div>
     <div class="decoration decoration-2"></div>
-    <div class="decoration decoration-3"></div>
 
     <!-- 主容器 -->
     <div class="auth-container">
       <!-- 左侧品牌展示 -->
       <div class="brand-section">
         <div class="brand-content">
-          <div class="brand-logo">
-            <div class="logo-icon">
-              <el-icon :size="32"><ChatDotRound /></el-icon>
-            </div>
+          <div class="logo-icon">
+            <el-icon :size="30"><ChatDotRound /></el-icon>
           </div>
-          <h1 class="brand-title">INK短信网关</h1>
-          <p class="brand-subtitle">企业级短信网关管理平台</p>
+          <h1 class="brand-title">INK<span class="brand-accent">OPS</span></h1>
+          <p class="brand-subtitle">企业级短信网关运维管理平台</p>
           <div class="brand-features">
             <div class="feature-item">
               <el-icon><Connection /></el-icon>
-              <span>多通道支持</span>
+              <span>多通道 CMPP 接入</span>
             </div>
             <div class="feature-item">
               <el-icon><DataLine /></el-icon>
-              <span>实时监控</span>
+              <span>连接池实时监控</span>
             </div>
             <div class="feature-item">
               <el-icon><CircleCheck /></el-icon>
-              <span>安全可靠</span>
+              <span>高可用可靠投递</span>
             </div>
           </div>
         </div>
@@ -47,7 +41,7 @@
 
           <el-form ref="loginFormRef" :model="loginForm" :rules="rules" label-width="0" size="large">
             <el-form-item prop="username">
-              <el-input v-model="loginForm.username" placeholder="请输入用户名" class="custom-input">
+              <el-input v-model="loginForm.username" placeholder="请输入用户名">
                 <template #prefix>
                   <el-icon><User /></el-icon>
                 </template>
@@ -57,7 +51,7 @@
             <el-form-item prop="password">
               <el-input
                 v-model="loginForm.password" type="password" placeholder="请输入密码"
-                show-password class="custom-input" @keyup.enter="handleLogin"
+                show-password @keyup.enter="handleLogin"
               >
                 <template #prefix>
                   <el-icon><Lock /></el-icon>
@@ -66,17 +60,8 @@
             </el-form-item>
 
             <el-form-item>
-              <el-button 
-                type="primary" 
-                :loading="loading" 
-                @click="handleLogin" 
-                class="submit-btn"
-              >
-                <span v-if="!loading">登录</span>
-                <span v-else class="loading-text">
-                  <el-icon class="is-loading"><Loading /></el-icon>
-                  登录中...
-                </span>
+              <el-button type="primary" :loading="loading" @click="handleLogin" class="submit-btn">
+                登录
               </el-button>
             </el-form-item>
 
@@ -96,7 +81,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { User, Lock, ChatDotRound, Connection, DataLine, CircleCheck, Loading } from '@element-plus/icons-vue'
+import { User, Lock, ChatDotRound, Connection, DataLine, CircleCheck } from '@element-plus/icons-vue'
 import { useUserStore } from '../stores/user'
 
 const router = useRouter()
@@ -147,84 +132,46 @@ const goToRegister = () => {
   position: relative;
   overflow: hidden;
   padding: 20px;
+  z-index: 1;
 }
 
-/* 动态渐变背景 */
-.bg-gradient {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(-45deg, #1e3a5f, #2d5a87, #1e293b, #3b4f6a);
-  background-size: 400% 400%;
-  animation: gradientShift 15s ease infinite;
-}
-
-@keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* 装饰元素 */
+/* 氛围光斑装饰 */
 .decoration {
   position: absolute;
   border-radius: 50%;
-  background: rgba(59, 130, 246, 0.1);
-  filter: blur(60px);
-  animation: float 8s ease-in-out infinite;
+  filter: blur(80px);
+  animation: float 9s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .decoration-1 {
-  width: 400px;
-  height: 400px;
-  top: -100px;
-  left: -100px;
-  animation-delay: 0s;
+  width: 420px;
+  height: 420px;
+  top: -120px;
+  left: -80px;
+  background: rgba(34, 211, 238, 0.1);
 }
 
 .decoration-2 {
-  width: 300px;
-  height: 300px;
-  bottom: -50px;
-  right: -50px;
-  background: rgba(99, 102, 241, 0.15);
-  animation-delay: 2s;
+  width: 320px;
+  height: 320px;
+  bottom: -80px;
+  right: -60px;
+  background: rgba(167, 139, 250, 0.09);
+  animation-delay: 3s;
 }
 
-.decoration-3 {
-  width: 200px;
-  height: 200px;
-  top: 50%;
-  right: 20%;
-  background: rgba(139, 92, 246, 0.1);
-  animation-delay: 4s;
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(30px, -30px) scale(1.05);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.95);
-  }
-}
-
-/* 主容器 */
+/* 主容器：玻璃拟态 */
 .auth-container {
   display: flex;
   width: 900px;
   max-width: 100%;
   min-height: 520px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(13, 20, 36, 0.72);
   backdrop-filter: blur(20px);
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lift);
   position: relative;
   z-index: 10;
   overflow: hidden;
@@ -237,68 +184,77 @@ const goToRegister = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid var(--border-light);
+  background:
+    linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
 }
 
 .brand-content {
   text-align: center;
-  color: white;
-}
-
-.brand-logo {
-  margin-bottom: 24px;
 }
 
 .logo-icon {
-  width: 72px;
-  height: 72px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, #6366f1 100%);
-  border-radius: 20px;
+  width: 68px;
+  height: 68px;
+  border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto;
-  box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.5);
+  margin: 0 auto 22px;
+  color: #04121a;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  box-shadow: var(--glow-accent);
+  animation: float 5s ease-in-out infinite;
 }
 
 .brand-title {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
   margin: 0 0 8px;
-  background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+}
+
+.brand-accent {
+  color: var(--accent);
+  text-shadow: 0 0 16px rgba(34, 211, 238, 0.7);
 }
 
 .brand-subtitle {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  color: var(--text-secondary);
   margin: 0 0 32px;
 }
 
 .brand-features {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .feature-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
+  padding: 11px 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast) ease;
+}
+
+.feature-item:hover {
+  border-color: var(--border-glow);
+  color: var(--text-primary);
 }
 
 .feature-item .el-icon {
-  color: var(--primary-light);
-  font-size: 18px;
+  color: var(--accent);
+  font-size: 17px;
 }
 
 /* 表单区 */
@@ -322,87 +278,36 @@ const goToRegister = () => {
 .form-header h2 {
   font-size: 24px;
   font-weight: 600;
-  color: white;
+  color: var(--text-primary);
   margin: 0 0 8px;
 }
 
 .form-header p {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  color: var(--text-muted);
   margin: 0;
-}
-
-/* 自定义输入框 */
-.custom-input :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: none;
-  transition: all var(--transition-normal) ease;
-}
-
-.custom-input :deep(.el-input__wrapper:hover) {
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.custom-input :deep(.el-input__wrapper.is-focus) {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-}
-
-.custom-input :deep(.el-input__inner) {
-  color: white;
-}
-
-.custom-input :deep(.el-input__inner::placeholder) {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.custom-input :deep(.el-input__prefix) {
-  color: rgba(255, 255, 255, 0.5);
 }
 
 /* 提交按钮 */
 .submit-btn {
   width: 100%;
-  height: 48px;
-  font-size: 16px;
-  font-weight: 500;
-  background: linear-gradient(135deg, var(--primary-color) 0%, #6366f1 100%);
-  border: none;
-  border-radius: 12px;
-  transition: all var(--transition-normal) ease;
-}
-
-.submit-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.4);
-}
-
-.submit-btn:active {
-  transform: translateY(0);
-}
-
-.loading-text {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  height: 46px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  border-radius: var(--radius-md);
 }
 
 /* 表单底部 */
 .form-footer {
   text-align: center;
-  margin-top: 24px;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
+  margin-top: 20px;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .form-footer span {
-  margin-right: 8px;
-}
-
-.form-footer :deep(.el-link) {
-  color: var(--primary-light);
-  font-weight: 500;
+  margin-right: 6px;
 }
 
 /* 响应式 */
@@ -411,17 +316,17 @@ const goToRegister = () => {
     flex-direction: column;
     min-height: auto;
   }
-  
+
   .brand-section {
     padding: 32px 24px;
     border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--border-light);
   }
-  
+
   .brand-features {
     display: none;
   }
-  
+
   .form-section {
     padding: 32px 24px;
   }

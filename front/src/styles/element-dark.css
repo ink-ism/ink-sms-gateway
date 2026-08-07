@@ -1,0 +1,91 @@
+/**
+ * Element Plus 暗色主题覆盖
+ * 基底: element-plus/theme-chalk/dark/css-vars.css（main.ts 引入），此处按 INK OPS 规范覆写
+ */
+html.dark {
+  /* 品牌色-青 */
+  --el-color-primary: #22d3ee;
+  --el-color-primary-light-3: #4ddcec;
+  --el-color-primary-light-5: #2aa9bf;
+  --el-color-primary-light-7: #1b6f80;
+  --el-color-primary-light-8: #14495a;
+  --el-color-primary-light-9: #0e2f3d;
+  --el-color-primary-dark-2: #67e8f9;
+
+  /* 状态色 */
+  --el-color-success: #00d68f;
+  --el-color-success-light-3: #00e6a0;
+  --el-color-success-light-5: #00b37a;
+  --el-color-success-light-7: #007d57;
+  --el-color-success-light-8: #065f46;
+  --el-color-success-light-9: #0a3d31;
+  --el-color-success-dark-2: #34ffb8;
+  --el-color-warning: #fbbf24;
+  --el-color-warning-light-3: #fcd34d;
+  --el-color-warning-light-5: #d69e1f;
+  --el-color-warning-light-7: #96700f;
+  --el-color-warning-light-8: #6b500a;
+  --el-color-warning-light-9: #42310a;
+  --el-color-warning-dark-2: #fcd34d;
+  --el-color-danger: #ff4d6d;
+  --el-color-danger-light-3: #ff7590;
+  --el-color-danger-light-5: #d63c5c;
+  --el-color-danger-light-7: #94293f;
+  --el-color-danger-light-8: #661c2c;
+  --el-color-danger-light-9: #3d111b;
+  --el-color-danger-dark-2: #ff7590;
+  --el-color-error: #ff4d6d;
+  --el-color-info: #8b9bb4;
+
+  /* 背景层级 */
+  --el-bg-color: #0d1424;
+  --el-bg-color-page: #070b14;
+  --el-bg-color-overlay: #131d33;
+  --el-fill-color: #131d33;
+  --el-fill-color-light: #101a30;
+  --el-fill-color-lighter: #0f1729;
+  --el-fill-color-extra-light: #0d1424;
+  --el-fill-color-blank: #0d1424;
+  --el-fill-color-dark: #1a2742;
+
+  /* 边框 */
+  --el-border-color: #1b2740;
+  --el-border-color-light: #16203a;
+  --el-border-color-lighter: #131c30;
+  --el-border-color-extra-light: #101830;
+  --el-border-color-dark: #243354;
+  --el-border-color-darker: #2a3b61;
+
+  /* 文本 */
+  --el-text-color-primary: #e6edf7;
+  --el-text-color-regular: #b6c2d9;
+  --el-text-color-secondary: #8b9bb4;
+  --el-text-color-placeholder: #55647e;
+  --el-text-color-disabled: #3d4a63;
+
+  /* 遮罩 */
+  --el-mask-color: rgba(4, 8, 16, 0.72);
+  --el-mask-color-extra-light: rgba(4, 8, 16, 0.3);
+
+  /* 阴影 */
+  --el-box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --el-box-shadow-light: 0 4px 16px rgba(0, 0, 0, 0.4);
+
+  /* 表格 */
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: rgba(19, 29, 51, 0.6);
+  --el-table-row-hover-bg-color: rgba(34, 211, 238, 0.06);
+  --el-table-border-color: #141e35;
+  --el-table-border: 1px solid #141e35;
+  --el-table-text-color: #b6c2d9;
+  --el-table-header-text-color: #8b9bb4;
+  --el-table-current-row-bg-color: rgba(34, 211, 238, 0.08);
+
+  /* 菜单（侧边栏） */
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: #8b9bb4;
+  --el-menu-active-color: #22d3ee;
+  --el-menu-hover-bg-color: rgba(34, 211, 238, 0.08);
+  --el-menu-border-color: transparent;
+}
