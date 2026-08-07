@@ -33,6 +33,9 @@ Thumbs.db
 
 # Deploy output
 deploy/
+
+# 本地部署脚本（含服务器凭据，禁止提交）
+script/
 *.tar.gz
 *.zip
 CmppClientTest.java

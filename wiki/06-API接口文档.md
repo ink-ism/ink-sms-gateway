@@ -543,6 +543,208 @@
 
 ---
 
+## 客户管理接口
+
+### GET /api/admin/sp/list — 获取客户列表
+
+**认证**：是（需 `X-User-Id` 请求头，由网关注入）
+
+**查询参数**：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `page` | int | 1 | 页码 |
+| `size` | int | 10 | 每页大小 |
+| `keyword` | string | - | 搜索关键字（sp_id/名称） |
+
+**成功响应**：
+
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "spId": "tsp01",
+        "name": "测试客户",
+        "status": 1,
+        "description": "CMPP接入测试",
+        "createTime": "2026-08-07T10:00:00"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "size": 10
+  },
+  "timestamp": 1720000000000
+}
+```
+
+---
+
+### GET /api/admin/sp/{id} — 获取客户详情
+
+**认证**：是
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `id` | long | 客户 ID |
+
+---
+
+### POST /api/admin/sp — 创建客户
+
+**认证**：是
+
+**请求体**（JSON）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `spId` | string | 是 | 客户标识（CMPP Source_Addr，建议≤6字符） |
+| `spSecret` | string | 是 | 共享密钥（用于 CMPP 认证） |
+| `name` | string | 是 | 客户名称 |
+| `description` | string | 否 | 客户描述 |
+
+**请求示例**：
+
+```json
+{
+  "spId": "tsp01",
+  "spSecret": "test123",
+  "name": "测试客户",
+  "description": "CMPP接入测试"
+}
+```
+
+---
+
+### PUT /api/admin/sp/{id} — 更新客户
+
+**认证**：是
+
+**请求体**（JSON）：同创建接口
+
+---
+
+### DELETE /api/admin/sp/{id} — 删除客户
+
+**认证**：是
+
+---
+
+### PUT /api/admin/sp/{id}/enable — 启用客户
+
+**认证**：是
+
+**副作用**：触发 `/api/sms/channels/refresh` 刷新客户认证缓存
+
+---
+
+### PUT /api/admin/sp/{id}/disable — 禁用客户
+
+**认证**：是
+
+**副作用**：触发 `/api/sms/channels/refresh` 刷新客户认证缓存
+
+---
+
+### GET /api/admin/sp/{id}/channels — 获取客户绑定通道
+
+**认证**：是
+
+**成功响应**：
+
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": ["cmpp-moxan", "cmpp-test"],
+  "timestamp": 1720000000000
+}
+```
+
+---
+
+### PUT /api/admin/sp/{id}/channels — 全量替换客户绑定通道
+
+**认证**：是
+
+**请求体**（JSON）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `channelCodes` | string[] | 是 | 绑定的通道编码列表（全量替换） |
+
+**请求示例**：
+
+```json
+{
+  "channelCodes": ["cmpp-moxan"]
+}
+```
+
+---
+
+## 黑名单管理接口
+
+### GET /api/admin/blacklist/list — 分页查询黑名单
+
+**认证**：是
+
+**查询参数**：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `page` | int | 1 | 页码 |
+| `size` | int | 10 | 每页大小 |
+| `channelCode` | string | - | 通道编码（可选） |
+| `phone` | string | - | 手机号（可选） |
+
+**成功响应**：
+
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "channelCode": "cmpp-moxan",
+        "phone": "13800138000",
+        "keyword": "TD",
+        "expireTime": "2027-08-07T10:00:00",
+        "createTime": "2026-08-07T10:00:00"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "size": 10
+  },
+  "timestamp": 1720000000000
+}
+```
+
+---
+
+### DELETE /api/admin/blacklist/{id} — 移除黑名单
+
+**认证**：是
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `id` | long | 黑名单 ID |
+
+**副作用**：清除 Redis 黑名单缓存（`ink:blacklist:{channelCode}:{phone}`）
+
+---
+
 ## 短信服务接口
 
 ### POST /api/sms/send — 发送短信
