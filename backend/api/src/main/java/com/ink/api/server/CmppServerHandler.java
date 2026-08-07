@@ -13,6 +13,8 @@ import com.ink.channel.cmpp.message.CmppSubmitResponseMessage;
 import com.ink.channel.cmpp.message.CmppTerminateResponseMessage;
 import com.ink.channel.cmpp.util.CmppAuthUtil;
 import com.ink.channel.session.CmppSession;
+import com.ink.api.service.DownstreamPushService;
+import com.ink.api.service.SpAccountService;
 import com.ink.api.service.SmsRecordService;
 import com.ink.core.connection.CmppConnectionManager;
 import io.netty.channel.ChannelHandlerContext;
@@ -21,6 +23,7 @@ import io.netty.handler.timeout.IdleStateEvent;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 
 /**
  * CMPP 服务端消息处理器
@@ -33,11 +36,20 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
     private final SpSessionManager sessionManager;
     private CmppSession session;
 
-    /** 上游连接管理器（通过构造函数注入，可为 null） */
+    /** 上游连接管理器（通过静态注入，可为 null） */
     private static CmppConnectionManager connectionManager;
 
     /** 短信记录服务（通过静态注入，可为 null） */
     private static SmsRecordService smsRecordService;
+
+    /** 客户账号服务（通过静态注入，可为 null） */
+    private static SpAccountService spAccountService;
+
+    /** 下游推送服务（通过静态注入，可为 null） */
+    private static DownstreamPushService pushService;
+
+    /** Submit 响应结果码：号码已退订（黑名单拦截，自定义码） */
+    private static final int SUBMIT_RESULT_BLACKLISTED = 9;
 
     public static void setConnectionManager(CmppConnectionManager manager) {
         connectionManager = manager;
@@ -45,6 +57,14 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
 
     public static void setSmsRecordService(SmsRecordService service) {
         smsRecordService = service;
+    }
+
+    public static void setSpAccountService(SpAccountService service) {
+        spAccountService = service;
+    }
+
+    public static void setPushService(DownstreamPushService service) {
+        pushService = service;
     }
 
     public CmppServerHandler(CmppServerConfig serverConfig, SpSessionManager sessionManager) {
@@ -126,6 +146,11 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
         session.markAuthenticated();
         sessionManager.addSession(spId, session);
         log.info("SP 认证成功: spId={}", spId);
+
+        // 认证成功后异步补发离线期间的回执/上行消息
+        if (pushService != null) {
+            pushService.flushQueueAsync(spId);
+        }
     }
 
     /**
@@ -141,16 +166,19 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
         }
 
         CmppSubmitRequestMessage submitReq = CmppSubmitRequestMessage.fromBytes(body);
-        log.info("收到 SP Submit: spId={}, dest={}", session.getSpId(), submitReq.getDestTerminalId());
+        String spId = session.getSpId();
+        String destPhone = (submitReq.getDestTerminalId() != null && submitReq.getDestTerminalId().length > 0)
+                ? submitReq.getDestTerminalId()[0] : null;
+        log.info("收到 SP Submit: spId={}, dest={}", spId, destPhone);
 
         // 生成唯一客户端 msgId
         String timestamp = String.valueOf(System.currentTimeMillis());
         String uuidPart = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         String clientMsgId = "CMPP" + timestamp + uuidPart;
 
-        // 转发到上游 CMPP 服务器，异步等待 Submit Response
+        // 转发到上游 CMPP 服务器（携带客户标识：绑定通道选路 + 黑名单拦截）
         if (connectionManager != null && connectionManager.isConnected()) {
-            connectionManager.submit(submitReq).whenComplete((result, ex) -> {
+            connectionManager.submit(submitReq, spId).whenComplete((result, ex) -> {
                 CmppSubmitResponseMessage submitResp = new CmppSubmitResponseMessage();
                 if (ex == null) {
                     submitResp.setMsgId(result.getServerMsgId());
@@ -160,18 +188,28 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
                     log.info("SP Submit 转发成功: serverMsgId=0x{}, channel={}", serverMsgIdHex, channelCode);
                     // 记录下行短信
                     if (smsRecordService != null) {
-                        smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, submitReq.getSrcId(),
-                                submitReq.getDestTerminalId()[0], submitReq.getMsgContent(), submitReq.getMsgFmt(),
+                        smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, spId, submitReq.getSrcId(),
+                                destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
                                 submitReq.getServiceId(), channelCode, 1, null);
                     }
+                } else if (isBlacklisted(ex)) {
+                    // 黑名单拦截：返回自定义结果码并落失败记录
+                    submitResp.setMsgId(0);
+                    submitResp.setResult(SUBMIT_RESULT_BLACKLISTED);
+                    log.warn("SP Submit 被黑名单拦截: spId={}, dest={}", spId, destPhone);
+                    if (smsRecordService != null) {
+                        smsRecordService.recordSmsDown(clientMsgId, null, spId, submitReq.getSrcId(),
+                                destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
+                                submitReq.getServiceId(), null, 2, "号码已退订");
+                    }
                 } else {
-                    submitResp.setMsgId(System.currentTimeMillis());
+                    submitResp.setMsgId(0);
                     submitResp.setResult(2);
                     log.warn("SP Submit 转发失败: {}", ex.getMessage());
                     // 记录失败的下行短信
                     if (smsRecordService != null) {
-                        smsRecordService.recordSmsDown(clientMsgId, null, submitReq.getSrcId(),
-                                submitReq.getDestTerminalId()[0], submitReq.getMsgContent(), submitReq.getMsgFmt(),
+                        smsRecordService.recordSmsDown(clientMsgId, null, spId, submitReq.getSrcId(),
+                                destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
                                 submitReq.getServiceId(), null, 2, ex.getMessage());
                     }
                 }
@@ -183,12 +221,21 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
             submitResp.setResult(1);
             // 记录失败的下行短信
             if (smsRecordService != null) {
-                smsRecordService.recordSmsDown(clientMsgId, null, submitReq.getSrcId(),
-                        submitReq.getDestTerminalId()[0], submitReq.getMsgContent(), submitReq.getMsgFmt(),
+                smsRecordService.recordSmsDown(clientMsgId, null, spId, submitReq.getSrcId(),
+                        destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
                         submitReq.getServiceId(), null, 2, "上游CMPP未连接");
             }
             sendResponse(CmppCommandType.SUBMIT_RESP.getCommandId(), sequenceId, submitResp.toBytes());
         }
+    }
+
+    /**
+     * 判断异常是否为黑名单拦截（解包 CompletionException）
+     */
+    private boolean isBlacklisted(Throwable ex) {
+        Throwable cause = ex instanceof CompletionException && ex.getCause() != null ? ex.getCause() : ex;
+        return cause.getMessage() != null
+                && cause.getMessage().startsWith(CmppConnectionManager.BLACKLISTED_ERROR);
     }
 
     /**
@@ -210,7 +257,7 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
         CmppTerminateResponseMessage resp = new CmppTerminateResponseMessage();
         sendResponse(CmppCommandType.TERMINATE_RESP.getCommandId(), sequenceId, resp.toBytes());
 
-        sessionManager.removeSession(session.getSpId());
+        sessionManager.removeSession(session.getSpId(), session);
         session.close();
     }
 
@@ -218,7 +265,7 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         if (evt instanceof IdleStateEvent) {
             log.warn("SP 连接空闲超时，关闭: {}", session.getSpId());
-            sessionManager.removeSession(session.getSpId());
+            sessionManager.removeSession(session.getSpId(), session);
             ctx.close();
         }
         super.userEventTriggered(ctx, evt);
@@ -227,13 +274,13 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
         log.info("SP 连接断开: {}", session.getSpId());
-        sessionManager.removeSession(session.getSpId());
+        sessionManager.removeSession(session.getSpId(), session);
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.error("SP 连接异常: {}", cause.getMessage(), cause);
-        sessionManager.removeSession(session.getSpId());
+        sessionManager.removeSession(session.getSpId(), session);
         ctx.close();
     }
 
@@ -247,8 +294,16 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
 
     /**
      * 查找 SP 的共享密钥
+     * 优先查数据库客户表（ink_sp），未命中时回退到 yml 配置并提示迁移
      */
     private String findSpSecret(String spId) {
+        if (spAccountService != null) {
+            String secret = spAccountService.findSecret(spId);
+            if (secret != null) {
+                return secret;
+            }
+        }
+        // 兜底：旧配置 allowed-sp-list（待迁移到客户表）
         String allowedSpList = serverConfig.getAllowedSpList();
         if (allowedSpList == null || allowedSpList.isEmpty()) {
             return null;
@@ -256,6 +311,7 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
         for (String entry : allowedSpList.split(",")) {
             String[] parts = entry.trim().split(":");
             if (parts.length == 2 && parts[0].equals(spId)) {
+                log.warn("SP [{}] 使用 yml 兜底配置认证，请迁移到客户表 ink_sp", spId);
                 return parts[1];
             }
         }

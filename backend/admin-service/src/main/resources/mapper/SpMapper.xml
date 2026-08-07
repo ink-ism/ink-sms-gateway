@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ink.admin.mapper.SpMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.ink.admin.entity.Sp">
+        <id column="id" property="id"/>
+        <result column="sp_id" property="spId"/>
+        <result column="sp_secret" property="spSecret"/>
+        <result column="name" property="name"/>
+        <result column="status" property="status"/>
+        <result column="description" property="description"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 基础列 -->
+    <sql id="Base_Columns">
+        id, sp_id, sp_secret, name, status, description, create_time, update_time
+    </sql>
+
+    <!-- 根据ID查询 -->
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_sp WHERE id = #{id}
+    </select>
+
+    <!-- 根据客户标识查询 -->
+    <select id="findBySpId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_sp WHERE sp_id = #{spId}
+    </select>
+
+    <!-- 分页查询 -->
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_sp ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 关键字搜索 -->
+    <select id="search" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_sp
+        WHERE sp_id LIKE CONCAT('%', #{keyword}, '%')
+           OR name LIKE CONCAT('%', #{keyword}, '%')
+           OR description LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 总数 -->
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM ink_sp
+    </select>
+
+    <!-- 搜索总数 -->
+    <select id="countByKeyword" resultType="int">
+        SELECT COUNT(*) FROM ink_sp
+        WHERE sp_id LIKE CONCAT('%', #{keyword}, '%')
+           OR name LIKE CONCAT('%', #{keyword}, '%')
+           OR description LIKE CONCAT('%', #{keyword}, '%')
+    </select>
+
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.ink.admin.entity.Sp" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ink_sp (sp_id, sp_secret, name, status, description, create_time, update_time)
+        VALUES (#{spId}, #{spSecret}, #{name}, #{status}, #{description}, #{createTime}, #{updateTime})
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.ink.admin.entity.Sp">
+        UPDATE ink_sp
+        SET sp_id = #{spId},
+            sp_secret = #{spSecret},
+            name = #{name},
+            status = #{status},
+            description = #{description},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 删除 -->
+    <delete id="deleteById">
+        DELETE FROM ink_sp WHERE id = #{id}
+    </delete>
+
+    <!-- 更新状态 -->
+    <update id="updateStatus">
+        UPDATE ink_sp SET status = #{status}, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <!-- 检查客户标识是否存在 -->
+    <select id="existsBySpId" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM ink_sp WHERE sp_id = #{spId}
+    </select>
+
+    <!-- ==================== 通道绑定 ==================== -->
+
+    <!-- 查询客户绑定的通道编码 -->
+    <select id="findChannelCodes" resultType="string">
+        SELECT channel_code FROM ink_sp_channel WHERE sp_id = #{spId} ORDER BY id ASC
+    </select>
+
+    <!-- 删除客户的全部通道绑定 -->
+    <delete id="deleteChannelsBySpId">
+        DELETE FROM ink_sp_channel WHERE sp_id = #{spId}
+    </delete>
+
+    <!-- 新增客户通道绑定 -->
+    <insert id="insertChannel">
+        INSERT INTO ink_sp_channel (sp_id, channel_code) VALUES (#{spId}, #{channelCode})
+    </insert>
+
+</mapper>

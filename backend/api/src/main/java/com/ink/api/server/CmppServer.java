@@ -1,7 +1,9 @@
 package com.ink.api.server;
 
 import com.ink.api.config.CmppServerConfig;
+import com.ink.api.service.DownstreamPushService;
 import com.ink.api.service.SmsRecordService;
+import com.ink.api.service.SpAccountService;
 import com.ink.api.session.SpSessionManager;
 import com.ink.core.connection.CmppConnectionManager;
 import io.netty.bootstrap.ServerBootstrap;
@@ -27,6 +29,8 @@ public class CmppServer {
     private final SpSessionManager sessionManager;
     private final CmppConnectionManager connectionManager;
     private final SmsRecordService smsRecordService;
+    private final SpAccountService spAccountService;
+    private final DownstreamPushService pushService;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
@@ -35,11 +39,15 @@ public class CmppServer {
     public CmppServer(CmppServerConfig serverConfig,
                       SpSessionManager sessionManager,
                       CmppConnectionManager connectionManager,
-                      SmsRecordService smsRecordService) {
+                      SmsRecordService smsRecordService,
+                      SpAccountService spAccountService,
+                      DownstreamPushService pushService) {
         this.serverConfig = serverConfig;
         this.sessionManager = sessionManager;
         this.connectionManager = connectionManager;
         this.smsRecordService = smsRecordService;
+        this.spAccountService = spAccountService;
+        this.pushService = pushService;
     }
 
     @PostConstruct
@@ -47,6 +55,8 @@ public class CmppServer {
         // 设置静态引用，供 CmppServerHandler 使用
         CmppServerHandler.setConnectionManager(connectionManager);
         CmppServerHandler.setSmsRecordService(smsRecordService);
+        CmppServerHandler.setSpAccountService(spAccountService);
+        CmppServerHandler.setPushService(pushService);
 
         bossGroup = new NioEventLoopGroup(serverConfig.getBossThreads());
         workerGroup = new NioEventLoopGroup(serverConfig.getWorkerThreads());

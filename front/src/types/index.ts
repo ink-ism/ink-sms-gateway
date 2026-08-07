@@ -121,3 +121,43 @@ export interface SmsListData<T> {
   page: number
   size: number
 }
+
+/** 下游客户 */
+export interface Sp {
+  id: number
+  spId: string
+  spSecret: string
+  name: string
+  status: number
+  description: string
+  createTime: string
+  updateTime: string
+  channelCodes: string[]
+}
+
+/** 客户列表响应 */
+export interface SpListData {
+  list: Sp[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 退订黑名单记录 */
+export interface Blacklist {
+  id: number
+  channelCode: string
+  phone: string
+  keyword: string
+  sourceMoId: string
+  expireTime: string
+  createTime: string
+}
+
+/** 黑名单列表响应 */
+export interface BlacklistListData {
+  list: Blacklist[]
+  total: number
+  page: number
+  size: number
+}

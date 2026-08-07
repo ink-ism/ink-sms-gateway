@@ -10,8 +10,10 @@ public interface CmppMessageHandler {
 
     /**
      * 处理收到的 CMPP 消息
+     * @param message     消息对象
+     * @param channelCode 消息来源的上游通道编码
      */
-    void handleMessage(CmppMessage message);
+    void handleMessage(CmppMessage message, String channelCode);
 
     /**
      * 连接建立并认证成功

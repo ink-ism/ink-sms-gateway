@@ -5,7 +5,10 @@ import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * CMPP Deliver 请求消息（短信下发/上行）
@@ -63,6 +66,12 @@ public class CmppDeliverRequestMessage {
 
     /** 状态报告中的状态值 */
     private String reportStat;
+
+    /** 状态报告中的目标手机号（Dest_Terminal_Id） */
+    private String reportDestTerminalId;
+
+    /** 报告时间格式（Submit_Time/Done_Time，10 位） */
+    private static final DateTimeFormatter REPORT_TIME_FORMAT = DateTimeFormatter.ofPattern("yyMMddHHmm");
 
     /**
      * 从字节数组解析（CMPP 2.0 Deliver，emay 服务器格式）
@@ -209,6 +218,7 @@ public class CmppDeliverRequestMessage {
         if (pos + 21 > content.length) return;
         String destTerminalId = readFixedString(content, pos, 21);
         pos += 21;
+        msg.setReportDestTerminalId(destTerminalId);
         log.debug("parseReport: destTerminalId={}", destTerminalId);
 
         // Sequence_Code (1 byte)
@@ -262,5 +272,134 @@ public class CmppDeliverRequestMessage {
 
     public int getCommandId() {
         return CmppCommandType.DELIVER.getCommandId();
+    }
+
+    // ==================== 构造方向（网关向下游 SP 推送） ====================
+
+    /**
+     * 构造状态报告 Deliver（推送给下游 SP）
+     * @param msgId       本网关为本条 Deliver 生成的消息 ID
+     * @param destId      接入号（原下行的源号码）
+     * @param reportMsgId 原下行 Submit 的服务端消息 ID
+     * @param stat        状态报告结果（如 DELIVRD）
+     * @param destPhone   目标手机号（原下行的目的号码）
+     */
+    public static CmppDeliverRequestMessage createReport(long msgId, String destId, long reportMsgId,
+                                                         String stat, String destPhone) {
+        CmppDeliverRequestMessage msg = new CmppDeliverRequestMessage();
+        msg.setMsgId(msgId);
+        msg.setDestId(destId);
+        msg.setServiceId("0000000000");
+        msg.setTpPid(0);
+        msg.setTpUdhi(1);
+        msg.setMsgFmt(0);
+        msg.setSrcTerminalId(destPhone);
+        msg.setSrcTerminalType(0);
+        msg.setReport(true);
+        msg.setReportMsgId(reportMsgId);
+        msg.setReportStat(stat);
+        msg.setReportDestTerminalId(destPhone);
+        return msg;
+    }
+
+    /**
+     * 构造上行短信 Deliver（推送给下游 SP）
+     * @param msgId    本网关为本条 Deliver 生成的消息 ID
+     * @param srcPhone 上行源手机号
+     * @param destId   接入号（用户回复的目标号码）
+     * @param content  上行内容
+     * @param msgFmt   消息格式：0=ASCII, 8=UCS2, 15=GB2312
+     */
+    public static CmppDeliverRequestMessage createMo(long msgId, String srcPhone, String destId,
+                                                     String content, int msgFmt) {
+        CmppDeliverRequestMessage msg = new CmppDeliverRequestMessage();
+        msg.setMsgId(msgId);
+        msg.setDestId(destId);
+        msg.setServiceId("0000000000");
+        msg.setTpPid(0);
+        msg.setTpUdhi(0);
+        msg.setMsgFmt(msgFmt);
+        msg.setSrcTerminalId(srcPhone);
+        msg.setSrcTerminalType(0);
+        msg.setMsgContent(content != null ? content : "");
+        msg.setReport(false);
+        return msg;
+    }
+
+    /**
+     * 序列化为消息体字节（布局与 fromBytes 对称）
+     * Msg_Id(8) Dest_Id(21) Service_Id(10) TP_pid(1) TP_udhi(1) Msg_Fmt(1)
+     * Src_Terminal_Id(21) Src_Terminal_Type(1) Msg_Length(1) Msg_Content(N)
+     */
+    public byte[] toBytes() {
+        byte[] content;
+        if (isReport) {
+            content = buildReportContent();
+        } else {
+            content = encodeContent(msgContent != null ? msgContent : "", msgFmt);
+        }
+        // Msg_Length 为 1 字节，超长截断保护
+        if (content.length > 255) {
+            log.warn("Deliver 内容超长截断: 原长={}, 截断为 255", content.length);
+            byte[] truncated = new byte[255];
+            System.arraycopy(content, 0, truncated, 0, 255);
+            content = truncated;
+        }
+
+        ByteBuffer buf = ByteBuffer.allocate(8 + 21 + 10 + 3 + 21 + 1 + 1 + content.length);
+        writeLong(buf, msgId);
+        writeFixedString(buf, destId, 21);
+        writeFixedString(buf, serviceId, 10);
+        buf.put((byte) tpPid);
+        buf.put((byte) (isReport ? 1 : tpUdhi));
+        buf.put((byte) msgFmt);
+        writeFixedString(buf, srcTerminalId, 21);
+        buf.put((byte) srcTerminalType);
+        buf.put((byte) content.length);
+        buf.put(content);
+        return buf.array();
+    }
+
+    /**
+     * 构造状态报告内容体
+     * Msg_Id(8) + Stat(7) + Submit_Time(10) + Done_Time(10) + Dest_Terminal_Id(21) + Sequence_Code(1)
+     */
+    private byte[] buildReportContent() {
+        ByteBuffer buf = ByteBuffer.allocate(57);
+        writeLong(buf, reportMsgId);
+        writeFixedString(buf, reportStat, 7);
+        String now = LocalDateTime.now().format(REPORT_TIME_FORMAT);
+        writeFixedString(buf, now, 10);
+        writeFixedString(buf, now, 10);
+        writeFixedString(buf, reportDestTerminalId, 21);
+        buf.put((byte) 0);
+        return buf.array();
+    }
+
+    private static byte[] encodeContent(String content, int fmt) {
+        try {
+            return switch (fmt) {
+                case 0 -> content.getBytes(StandardCharsets.US_ASCII);
+                case 15 -> content.getBytes("GB2312");
+                default -> content.getBytes(StandardCharsets.UTF_16BE);
+            };
+        } catch (Exception e) {
+            return content.getBytes(StandardCharsets.UTF_8);
+        }
+    }
+
+    private static void writeLong(ByteBuffer buf, long value) {
+        for (int i = 7; i >= 0; i--) {
+            buf.put((byte) ((value >>> (i * 8)) & 0xFF));
+        }
+    }
+
+    private static void writeFixedString(ByteBuffer buf, String value, int length) {
+        byte[] bytes = value == null ? new byte[0] : value.getBytes(StandardCharsets.US_ASCII);
+        int n = Math.min(bytes.length, length);
+        buf.put(bytes, 0, n);
+        for (int i = n; i < length; i++) {
+            buf.put((byte) 0);
+        }
     }
 }

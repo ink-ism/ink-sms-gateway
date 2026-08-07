@@ -47,6 +47,18 @@ const routes: Array<RouteRecordRaw> = [
         meta: { requiresAuth: true }
       },
       {
+        path: 'sp',
+        name: 'SpManage',
+        component: () => import('../views/SpManage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'blacklist',
+        name: 'Blacklist',
+        component: () => import('../views/Blacklist.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
         path: 'sms/down',
         name: 'SmsDown',
         component: () => import('../views/SmsDown.vue'),

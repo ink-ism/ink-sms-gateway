@@ -35,7 +35,22 @@ public class SpSessionManager {
     }
 
     /**
-     * 移除会话
+     * 移除会话（带实例比对）
+     * 仅当当前注册的会话与传入实例相同时才移除，
+     * 避免同 spId 重连时旧连接断开回调误删新会话
+     */
+    public void removeSession(String spId, CmppSession session) {
+        if (session == null) {
+            removeSession(spId);
+            return;
+        }
+        if (sessions.remove(spId, session)) {
+            session.close();
+        }
+    }
+
+    /**
+     * 移除会话（按 spId，不区分实例）
      */
     public void removeSession(String spId) {
         CmppSession session = sessions.remove(spId);

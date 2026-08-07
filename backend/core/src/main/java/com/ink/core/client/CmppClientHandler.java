@@ -176,8 +176,8 @@ public class CmppClientHandler extends ChannelInboundHandlerAdapter {
                 CmppCommandType.DELIVER_RESP.getCommandId(), seqId, deliverResp.toBytes());
         ctx.writeAndFlush(response);
 
-        // 回调处理
-        messageHandler.handleMessage(cmppMsg);
+        // 回调处理（通道编码由上层 PoolEntry 包装器补充全，此处传 null）
+        messageHandler.handleMessage(cmppMsg, null);
     }
 
     /**
@@ -220,6 +220,13 @@ public class CmppClientHandler extends ChannelInboundHandlerAdapter {
         log.warn("CMPP 连接断开: {}:{}", config.getHost(), config.getPort());
         if (session != null) {
             session.close();
+        }
+        // 断连时将挂起的 Submit Future 全部置为失败，避免调用方永久等待与内存泄漏
+        if (!pendingSubmits.isEmpty()) {
+            log.warn("清理挂起的 Submit 请求: count={}", pendingSubmits.size());
+            pendingSubmits.forEach((seqId, future) ->
+                    future.completeExceptionally(new RuntimeException("CMPP 连接已断开")));
+            pendingSubmits.clear();
         }
         messageHandler.onDisconnected();
     }

@@ -3,7 +3,9 @@ package com.ink.api.controller;
 import com.ink.common.utils.Result;
 import com.ink.core.connection.CmppConnectionManager;
 import com.ink.core.connection.CmppConnectionManager.SubmitResult;
+import com.ink.api.service.DownstreamPushService;
 import com.ink.api.service.SmsRecordService;
+import com.ink.api.service.SpAccountService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,14 +29,16 @@ public class ChannelRefreshController {
 
     private final CmppConnectionManager connectionManager;
     private final SmsRecordService smsRecordService;
+    private final SpAccountService spAccountService;
 
     /**
-     * 刷新通道配置（从数据库重新加载）
+     * 刷新配置（从数据库重新加载通道与下游客户）
      */
     @PostMapping("/refresh")
     public Result<String> refreshChannels() {
         connectionManager.refreshChannels();
-        return Result.success("通道刷新完成");
+        spAccountService.reload();
+        return Result.success("通道与客户刷新完成");
     }
 
     /**
@@ -79,11 +83,16 @@ public class ChannelRefreshController {
                 .handle((result, ex) -> {
                     TestSendResponse response = new TestSendResponse();
                     if (ex != null) {
+                        Throwable cause = ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null
+                                ? ex.getCause() : ex;
+                        String causeMsg = cause.getMessage() != null ? cause.getMessage() : cause.getClass().getSimpleName();
+                        boolean blacklisted = causeMsg.startsWith("BLACKLISTED:");
                         String errorMsg = ex instanceof TimeoutException
                                 ? "CMPP Submit 响应超时(10s)"
-                                : (ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName());
+                                : (blacklisted ? "号码已退订" : causeMsg);
                         log.error("测试发送失败: channel={}, clientMsgId={}, error={}", channelCode, clientMsgId, errorMsg);
-                        smsRecordService.recordSmsDown(clientMsgId, null, submitReq.getSrcId(), destPhone,
+                        smsRecordService.recordSmsDown(clientMsgId, null, DownstreamPushService.REST_SP_ID,
+                                submitReq.getSrcId(), destPhone,
                                 request.getContent(), submitReq.getMsgFmt(), submitReq.getServiceId(),
                                 channelCode, 2, errorMsg);
                         response.setSuccess(false);
@@ -93,7 +102,8 @@ public class ChannelRefreshController {
                         String serverMsgIdHex = Long.toHexString(result.getServerMsgId());
                         log.info("测试发送成功: channel={}, clientMsgId={}, serverMsgId=0x{}",
                                 channelCode, clientMsgId, serverMsgIdHex);
-                        smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, submitReq.getSrcId(), destPhone,
+                        smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, DownstreamPushService.REST_SP_ID,
+                                submitReq.getSrcId(), destPhone,
                                 request.getContent(), submitReq.getMsgFmt(), submitReq.getServiceId(),
                                 channelCode, 1, null);
                         response.setSuccess(true);

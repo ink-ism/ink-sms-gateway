@@ -8,6 +8,9 @@ import com.ink.core.client.CmppClientHandler;
 import com.ink.core.config.CmppChannelConfig;
 import com.ink.core.config.ChannelConfigLoader;
 import com.ink.core.handler.CmppMessageHandler;
+import com.ink.core.repository.BlacklistChecker;
+import com.ink.core.repository.SpChannelRepository;
+import com.ink.core.routing.MsgRouteRegistry;
 import com.ink.channel.session.CmppSession;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -27,7 +30,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Component
 public class CmppConnectionManager {
 
+    /** 黑名单拦截错误标识（调用方据此区分退订拦截与普通失败） */
+    public static final String BLACKLISTED_ERROR = "BLACKLISTED:号码已退订";
+
     private final ChannelConfigLoader channelConfigLoader;
+
+    /** 客户-通道绑定查询（可为 null，表示不限制） */
+    private final SpChannelRepository spChannelRepository;
+
+    /** 黑名单判定（可为 null，表示不拦截） */
+    private final BlacklistChecker blacklistChecker;
+
+    /** 下行消息路由注册表 */
+    private final MsgRouteRegistry routeRegistry;
 
     /** 通道池映射: channelCode -> ChannelPool */
     private final ConcurrentHashMap<String, ChannelPool> channelPools = new ConcurrentHashMap<>();
@@ -47,8 +62,14 @@ public class CmppConnectionManager {
     /** 全局序列号生成器 */
     private final AtomicInteger sequenceGenerator = new AtomicInteger(1);
 
-    public CmppConnectionManager(ChannelConfigLoader channelConfigLoader) {
+    public CmppConnectionManager(ChannelConfigLoader channelConfigLoader,
+                                 SpChannelRepository spChannelRepository,
+                                 BlacklistChecker blacklistChecker,
+                                 MsgRouteRegistry routeRegistry) {
         this.channelConfigLoader = channelConfigLoader;
+        this.spChannelRepository = spChannelRepository;
+        this.blacklistChecker = blacklistChecker;
+        this.routeRegistry = routeRegistry;
     }
 
     public void setMessageHandler(CmppMessageHandler handler) {
@@ -134,15 +155,28 @@ public class CmppConnectionManager {
     }
 
     /**
-     * 发送短信（Submit）
-     * round-robin 选通道，再在通道池内 round-robin 选连接
+     * 发送短信（Submit），无客户上下文，允许全部通道
      */
     public CompletableFuture<SubmitResult> submit(CmppSubmitRequestMessage submitReq) {
-        PoolEntry entry = pickAvailableEntry();
-        if (entry == null) {
-            return CompletableFuture.failedFuture(new RuntimeException("CMPP 无可用通道"));
+        return submit(submitReq, null);
+    }
+
+    /**
+     * 发送短信（Submit）
+     * 按客户绑定通道过滤 + 黑名单拦截，round-robin 选通道，再在通道池内 round-robin 选连接
+     * @param spId 发送客户标识（null 表示无客户上下文，如内部测试）
+     */
+    public CompletableFuture<SubmitResult> submit(CmppSubmitRequestMessage submitReq, String spId) {
+        String phone = extractDestPhone(submitReq);
+        Set<String> allowedChannels = resolveAllowedChannels(spId);
+
+        EntryPick pick = pickAvailableEntry(allowedChannels, phone);
+        if (pick.entry == null) {
+            String error = pick.blockedAny ? BLACKLISTED_ERROR : "CMPP 无可用通道";
+            return CompletableFuture.failedFuture(new RuntimeException(error));
         }
 
+        PoolEntry entry = pick.entry;
         int seqId = generateSequenceId();
         String channelCode = entry.channelCode;
         CompletableFuture<Long> innerFuture = new CompletableFuture<>();
@@ -152,20 +186,31 @@ public class CmppConnectionManager {
                 CmppCommandType.SUBMIT.getCommandId(), seqId, submitReq.toBytes());
 
         entry.clientHandler.getSession().send(message);
-        log.debug("发送 Submit: channel={}, connId={}, seqId={}, dest={}",
-                channelCode, entry.connIndex, seqId, submitReq.getDestTerminalId());
+        log.debug("发送 Submit: channel={}, connId={}, seqId={}, spId={}, dest={}",
+                channelCode, entry.connIndex, seqId, spId, submitReq.getDestTerminalId());
 
-        return innerFuture.thenApply(serverMsgId -> new SubmitResult(serverMsgId, channelCode));
+        return innerFuture.thenApply(serverMsgId -> {
+            // 登记路由：回执到达时按 serverMsgId 定位发送客户
+            if (routeRegistry != null && spId != null) {
+                routeRegistry.register(Long.toHexString(serverMsgId), spId, channelCode);
+            }
+            return new SubmitResult(serverMsgId, channelCode);
+        });
     }
 
     /**
      * 向指定通道发送短信（Submit）
-     * 用于测试发送，绕过 round-robin 直接选择指定通道
+     * 用于测试发送，绕过 round-robin 直接选择指定通道（仍受黑名单拦截）
      */
     public CompletableFuture<SubmitResult> submitToChannel(String channelCode, CmppSubmitRequestMessage submitReq) {
         ChannelPool pool = channelPools.get(channelCode);
         if (pool == null) {
             return CompletableFuture.failedFuture(new RuntimeException("通道不存在: " + channelCode));
+        }
+
+        String phone = extractDestPhone(submitReq);
+        if (phone != null && blacklistChecker != null && blacklistChecker.isBlocked(channelCode, phone)) {
+            return CompletableFuture.failedFuture(new RuntimeException(BLACKLISTED_ERROR));
         }
 
         PoolEntry entry = pool.pickAvailable();
@@ -184,7 +229,12 @@ public class CmppConnectionManager {
         log.info("测试发送 Submit: channel={}, connId={}, seqId={}, dest={}",
                 channelCode, entry.connIndex, seqId, submitReq.getDestTerminalId());
 
-        return innerFuture.thenApply(serverMsgId -> new SubmitResult(serverMsgId, channelCode));
+        return innerFuture.thenApply(serverMsgId -> {
+            if (routeRegistry != null) {
+                routeRegistry.register(Long.toHexString(serverMsgId), "REST", channelCode);
+            }
+            return new SubmitResult(serverMsgId, channelCode);
+        });
     }
 
     /**
@@ -251,6 +301,31 @@ public class CmppConnectionManager {
 
     // ==================== 内部方法 ====================
 
+    /** 选路结果：命中条目或拦截原因 */
+    private static class EntryPick {
+        PoolEntry entry;
+        boolean blockedAny;
+    }
+
+    private String extractDestPhone(CmppSubmitRequestMessage submitReq) {
+        String[] dests = submitReq.getDestTerminalId();
+        return (dests != null && dests.length > 0) ? dests[0] : null;
+    }
+
+    /**
+     * 解析客户允许的通道集合，null 表示不限制
+     */
+    private Set<String> resolveAllowedChannels(String spId) {
+        if (spChannelRepository == null || spId == null) {
+            return null;
+        }
+        List<String> codes = spChannelRepository.findChannelCodes(spId);
+        if (codes == null || codes.isEmpty()) {
+            return null;
+        }
+        return new HashSet<>(codes);
+    }
+
     private void createChannelPool(CmppChannelConfig config) {
         ChannelPool pool = new ChannelPool(config);
         channelPools.put(config.getChannelCode(), pool);
@@ -259,8 +334,14 @@ public class CmppConnectionManager {
                 config.getChannelCode(), config.getHost(), config.getMaxConcurrent());
     }
 
-    private PoolEntry pickAvailableEntry() {
-        if (channelOrder.isEmpty()) return null;
+    /**
+     * 按绑定通道与黑名单过滤后 round-robin 选连接
+     * @param allowedChannels 允许的通道集合，null 表示不限制
+     * @param phone           目标手机号（用于黑名单判定，可为 null）
+     */
+    private EntryPick pickAvailableEntry(Set<String> allowedChannels, String phone) {
+        EntryPick pick = new EntryPick();
+        if (channelOrder.isEmpty()) return pick;
 
         int chSize = channelOrder.size();
         int chStart = roundRobin.getAndIncrement() % chSize;
@@ -269,14 +350,25 @@ public class CmppConnectionManager {
         // 尝试每个通道
         for (int c = 0; c < chSize; c++) {
             int chIdx = (chStart + c) % chSize;
-            ChannelPool pool = channelPools.get(channelOrder.get(chIdx));
-            if (pool == null) continue;
+            String code = channelOrder.get(chIdx);
+            if (allowedChannels != null && !allowedChannels.contains(code)) continue;
+            ChannelPool pool = channelPools.get(code);
+            if (pool == null || !pool.hasConnected()) continue;
+
+            // 黑名单拦截：该通道对目标号码已退订，跳过
+            if (phone != null && blacklistChecker != null && blacklistChecker.isBlocked(code, phone)) {
+                pick.blockedAny = true;
+                continue;
+            }
 
             // 在通道池内 round-robin 选连接
             PoolEntry entry = pool.pickAvailable();
-            if (entry != null) return entry;
+            if (entry != null) {
+                pick.entry = entry;
+                return pick;
+            }
         }
-        return null;
+        return pick;
     }
 
     private int generateSequenceId() {
@@ -432,8 +524,9 @@ public class CmppConnectionManager {
         CmppMessageHandler createMessageHandler() {
             return new CmppMessageHandler() {
                 @Override
-                public void handleMessage(CmppMessage message) {
-                    if (messageHandler != null) messageHandler.handleMessage(message);
+                public void handleMessage(CmppMessage message, String ignored) {
+                    // 携带真实通道编码回调，供上层按通道处理（如退订黑名单）
+                    if (messageHandler != null) messageHandler.handleMessage(message, channelCode);
                 }
                 @Override
                 public void onConnected() {

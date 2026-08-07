@@ -3,6 +3,7 @@ package com.ink.api.controller;
 import com.ink.common.utils.Result;
 import com.ink.core.connection.CmppConnectionManager;
 import com.ink.core.connection.CmppConnectionManager.SubmitResult;
+import com.ink.api.service.DownstreamPushService;
 import com.ink.api.service.SmsRecordService;
 import com.ink.api.session.SpSessionManager;
 import lombok.Data;
@@ -62,7 +63,9 @@ public class SmsController {
         submitReq.setServiceId(request.getServiceId() != null ? request.getServiceId() : "0000000000");
 
         String destPhone = request.getPhone();
-        CompletableFuture<SubmitResult> submitFuture = connectionManager.submit(submitReq);
+        // REST 入口客户标识固定为 REST（仅落库，不推送下游）
+        CompletableFuture<SubmitResult> submitFuture =
+                connectionManager.submit(submitReq, DownstreamPushService.REST_SP_ID);
 
         // 异步等待 CMPP Submit Response，释放 Tomcat 线程
         return submitFuture
@@ -70,22 +73,28 @@ public class SmsController {
                 .handle((result, ex) -> {
                     SmsSendResponse response = new SmsSendResponse();
                     if (ex != null) {
+                        Throwable cause = ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null
+                                ? ex.getCause() : ex;
+                        String causeMsg = cause.getMessage() != null ? cause.getMessage() : cause.getClass().getSimpleName();
+                        boolean blacklisted = causeMsg.startsWith("BLACKLISTED:");
                         String errorMsg = ex instanceof TimeoutException
                                 ? "CMPP Submit 响应超时(10s)"
-                                : (ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName());
+                                : (blacklisted ? "号码已退订" : causeMsg);
                         log.error("短信提交失败: clientMsgId={}, error={}", clientMsgId, errorMsg);
-                        smsRecordService.recordSmsDown(clientMsgId, null, submitReq.getSrcId(), destPhone,
+                        smsRecordService.recordSmsDown(clientMsgId, null, DownstreamPushService.REST_SP_ID,
+                                submitReq.getSrcId(), destPhone,
                                 request.getContent(), submitReq.getMsgFmt(), submitReq.getServiceId(),
                                 null, 2, errorMsg);
                         response.setSuccess(false);
-                        response.setMessage("短信提交失败");
-                        return Result.<SmsSendResponse>error("短信提交失败");
+                        response.setMessage(errorMsg);
+                        return Result.<SmsSendResponse>error(errorMsg);
                     } else {
                         String serverMsgIdHex = Long.toHexString(result.getServerMsgId());
                         String channelCode = result.getChannelCode();
                         log.info("短信提交成功: clientMsgId={}, serverMsgId=0x{}, channel={}",
                                 clientMsgId, serverMsgIdHex, channelCode);
-                        smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, submitReq.getSrcId(), destPhone,
+                        smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, DownstreamPushService.REST_SP_ID,
+                                submitReq.getSrcId(), destPhone,
                                 request.getContent(), submitReq.getMsgFmt(), submitReq.getServiceId(),
                                 channelCode, 1, null);
                         response.setSuccess(true);

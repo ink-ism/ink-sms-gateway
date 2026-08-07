@@ -41,6 +41,20 @@
           </template>
         </el-menu-item>
         
+        <el-menu-item index="/sp">
+          <el-icon><Avatar /></el-icon>
+          <template #title>
+            <span>客户管理</span>
+          </template>
+        </el-menu-item>
+        
+        <el-menu-item index="/blacklist">
+          <el-icon><CircleClose /></el-icon>
+          <template #title>
+            <span>黑名单管理</span>
+          </template>
+        </el-menu-item>
+        
         <el-sub-menu index="sms">
           <template #title>
             <el-icon><ChatDotRound /></el-icon>
@@ -137,7 +151,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { 
   User, ArrowDown, HomeFilled, UserFilled, Setting, Connection, 
-  ChatDotRound, Download, Upload, Expand, Fold, SwitchButton 
+  ChatDotRound, Download, Upload, Expand, Fold, SwitchButton,
+  Avatar, CircleClose 
 } from '@element-plus/icons-vue'
 import { useUserStore } from '../stores/user'
 
