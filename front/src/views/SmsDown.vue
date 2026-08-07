@@ -44,6 +44,12 @@
               <el-tag size="small" :type="statusTagType(row.status)" round>{{ statusText(row.status) }}</el-tag>
             </template>
           </el-table-column>
+          <el-table-column label="状态码" width="110" align="center">
+            <template #default="{ row }">
+              <el-tag v-if="row.statusReport" size="small" :type="reportTagType(row.statusReport)" effect="plain">{{ row.statusReport }}</el-tag>
+              <span v-else class="report-empty">-</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="createTime" label="发送时间" width="170" />
         </el-table>
         <div class="pagination-wrapper">
@@ -92,6 +98,12 @@ const statusText = (status: number) => {
 const statusTagType = (status: number) => {
   switch (status) { case 1: return 'warning'; case 2: return 'danger'; case 3: return 'success'; default: return 'info' }
 }
+const reportTagType = (report: string) => {
+  const stat = report.toUpperCase()
+  if (stat === 'DELIVRD') return 'success'
+  if (stat === 'ACCEPTED') return 'warning'
+  return 'danger'
+}
 
 onMounted(() => { fetchData() })
 </script>
@@ -117,6 +129,7 @@ onMounted(() => { fetchData() })
 .phone-cell { font-weight: 500; color: var(--text-primary); }
 .content-cell { color: var(--text-secondary); font-size: 13px; }
 .code-cell { font-family: 'SF Mono', Monaco, monospace; font-size: 12px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #475569; }
+.report-empty { color: #94a3b8; }
 .pagination-wrapper { padding: 20px 24px; display: flex; justify-content: flex-end; border-top: 1px solid #f1f5f9; }
 .pagination-wrapper :deep(.el-pager li) { border-radius: 6px; font-weight: 500; }
 .pagination-wrapper :deep(.el-pager li.is-active) { background: linear-gradient(135deg, var(--primary-color) 0%, #6366f1 100%); color: white; }
