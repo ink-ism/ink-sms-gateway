@@ -48,7 +48,7 @@
         </el-table-column>
         <el-table-column prop="createTime" label="注册时间" width="170">
           <template #default="{ row }">
-            <span class="mono dim-cell">{{ row.createTime }}</span>
+            <span class="mono dim-cell">{{ formatDateTime(row.createTime) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100" align="center">
@@ -128,6 +128,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, User, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import { formatDateTime } from '../utils/format'
 import type { User as UserType } from '../types'
 import { getUserList, getUserCount, disableUser, enableUser } from '../api/user'
 

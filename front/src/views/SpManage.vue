@@ -44,6 +44,15 @@
             <span v-if="!row.channelCodes || row.channelCodes.length === 0" class="channel-all">全部通道</span>
           </template>
         </el-table-column>
+        <el-table-column label="余额(元)" width="110" align="right">
+          <template #default="{ row }"><span class="mono balance-cell">{{ formatAmount(row.balance) }}</span></template>
+        </el-table-column>
+        <el-table-column label="单价(元/条)" width="110" align="right">
+          <template #default="{ row }"><span class="mono dim-cell">{{ formatAmount(row.unitPrice) }}</span></template>
+        </el-table-column>
+        <el-table-column label="限速(条/秒)" width="100" align="center">
+          <template #default="{ row }"><span class="mono dim-cell">{{ row.rateLimit > 0 ? row.rateLimit : '不限' }}</span></template>
+        </el-table-column>
         <el-table-column prop="description" label="描述" min-width="160" show-overflow-tooltip>
           <template #default="{ row }"><span class="content-cell">{{ row.description }}</span></template>
         </el-table-column>
@@ -53,10 +62,12 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="170">
-          <template #default="{ row }"><span class="mono dim-cell">{{ row.createTime }}</span></template>
+          <template #default="{ row }"><span class="mono dim-cell">{{ formatDateTime(row.createTime) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="360" fixed="right">
           <template #default="{ row }">
+            <el-button link type="primary" @click="openRechargeDialog(row as Sp)">充值</el-button>
+            <el-button link type="primary" @click="openTransactionsDrawer(row as Sp)">流水</el-button>
             <el-button link type="primary" @click="openBindDialog(row as Sp)">绑定通道</el-button>
             <el-button link type="primary" @click="openEditDialog(row as Sp)">编辑</el-button>
             <el-button link :type="row.status === 1 ? 'warning' : 'success'" @click="handleToggleStatus(row as Sp)">{{ row.status === 1 ? '禁用' : '启用' }}</el-button>
@@ -93,6 +104,13 @@
         <el-form-item label="客户名称" required>
           <el-input v-model="form.name" placeholder="客户名称" />
         </el-form-item>
+        <el-form-item label="单价(元)">
+          <el-input-number v-model="form.unitPrice" :min="0" :precision="4" :step="0.01" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="限速(条/秒)">
+          <el-input-number v-model="form.rateLimit" :min="0" :step="1" style="width: 100%" />
+          <div class="form-tip">0 表示不限速</div>
+        </el-form-item>
         <el-form-item label="描述">
           <el-input v-model="form.description" type="textarea" :rows="2" placeholder="客户描述（可选）" />
         </el-form-item>
@@ -107,6 +125,58 @@
         <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 充值/调账弹窗 -->
+    <el-dialog v-model="rechargeDialogVisible" title="充值/调账" width="440px" destroy-on-close>
+      <p class="bind-tip">客户 [{{ rechargingSp?.spId }}] 当前余额：<span class="mono">{{ formatAmount(rechargingSp?.balance) }}</span> 元</p>
+      <el-form label-width="80px">
+        <el-form-item label="金额" required>
+          <el-input-number v-model="rechargeAmount" :precision="4" :step="10" style="width: 100%" />
+          <div class="form-tip">正数充值，负数调账扣减</div>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="rechargeRemark" placeholder="充值备注（可选）" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="rechargeDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="handleRecharge">确认</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 余额流水抽屉 -->
+    <el-drawer v-model="txDrawerVisible" :title="`余额流水 - ${txSp?.spId || ''}`" size="620px">
+      <el-table :data="txList" v-loading="txLoading" size="small">
+        <el-table-column label="类型" width="90">
+          <template #default="{ row }">
+            <el-tag size="small" :type="txTypeTag(row.type)" effect="plain">{{ txTypeLabel(row.type) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="金额" width="110" align="right">
+          <template #default="{ row }">
+            <span class="mono" :class="Number(row.amount) >= 0 ? 'amount-in' : 'amount-out'">{{ Number(row.amount) >= 0 ? '+' : '' }}{{ formatAmount(row.amount) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="余额" width="110" align="right">
+          <template #default="{ row }"><span class="mono">{{ formatAmount(row.balanceAfter) }}</span></template>
+        </el-table-column>
+        <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="createTime" label="时间" width="160">
+          <template #default="{ row }"><span class="mono dim-cell">{{ formatDateTime(row.createTime) }}</span></template>
+        </el-table-column>
+      </el-table>
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="txPage"
+          :total="txTotal"
+          :page-size="txSize"
+          layout="total, prev, pager, next"
+          @current-change="fetchTransactions"
+          background
+          small
+        />
+      </div>
+    </el-drawer>
 
     <!-- 绑定通道弹窗 -->
     <el-dialog v-model="bindDialogVisible" title="绑定通道" width="480px" destroy-on-close>
@@ -127,9 +197,10 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh } from '@element-plus/icons-vue'
 import PageHeader from '../components/common/PageHeader.vue'
-import { getSpList, createSp, updateSp, deleteSp, enableSp, disableSp, bindSpChannels } from '../api/sp'
+import { formatDateTime } from '../utils/format'
+import { getSpList, createSp, updateSp, deleteSp, enableSp, disableSp, bindSpChannels, rechargeSp, getSpTransactions } from '../api/sp'
 import { getChannelList } from '../api/channel'
-import type { Sp, Channel } from '../types'
+import type { Sp, Channel, SpTransaction } from '../types'
 
 const keyword = ref('')
 const currentPage = ref(1)
@@ -151,8 +222,31 @@ const form = reactive({
   spSecret: '',
   name: '',
   description: '',
+  unitPrice: 0.05,
+  rateLimit: 20,
   channelCodes: [] as string[]
 })
+
+// 充值/流水状态
+const rechargeDialogVisible = ref(false)
+const rechargingSp = ref<Sp | null>(null)
+const rechargeAmount = ref<number>(0)
+const rechargeRemark = ref('')
+const txDrawerVisible = ref(false)
+const txSp = ref<Sp | null>(null)
+const txList = ref<SpTransaction[]>([])
+const txLoading = ref(false)
+const txPage = ref(1)
+const txSize = ref(10)
+const txTotal = ref(0)
+
+const formatAmount = (value: number | null | undefined) => {
+  const num = Number(value)
+  return Number.isFinite(num) ? num.toFixed(4).replace(/0+$/, '').replace(/\.$/, '') : '0'
+}
+
+const txTypeLabel = (type: string) => ({ RECHARGE: '充值', DEDUCT: '扣费', REFUND: '返还' }[type] || type)
+const txTypeTag = (type: string) => (type === 'RECHARGE' ? 'success' : type === 'REFUND' ? 'warning' : 'danger') as 'success' | 'warning' | 'danger'
 
 const fetchData = async () => {
   loading.value = true
@@ -173,7 +267,8 @@ const handleSearch = () => { currentPage.value = 1; fetchData() }
 const handleReset = () => { keyword.value = ''; currentPage.value = 1; fetchData() }
 
 const resetForm = () => {
-  form.spId = ''; form.spSecret = ''; form.name = ''; form.description = ''; form.channelCodes = []
+  form.spId = ''; form.spSecret = ''; form.name = ''; form.description = ''
+  form.unitPrice = 0.05; form.rateLimit = 20; form.channelCodes = []
 }
 
 const openCreateDialog = () => {
@@ -188,6 +283,8 @@ const openEditDialog = (row: Sp) => {
   form.spSecret = row.spSecret
   form.name = row.name
   form.description = row.description
+  form.unitPrice = Number(row.unitPrice)
+  form.rateLimit = Number(row.rateLimit)
   form.channelCodes = [...(row.channelCodes || [])]
   dialogVisible.value = true
 }
@@ -247,6 +344,52 @@ const handleDelete = (row: Sp) => {
     .catch(() => {})
 }
 
+// ==================== 充值/调账 ====================
+
+const openRechargeDialog = (row: Sp) => {
+  rechargingSp.value = row
+  rechargeAmount.value = 0
+  rechargeRemark.value = ''
+  rechargeDialogVisible.value = true
+}
+
+const handleRecharge = async () => {
+  if (!rechargingSp.value) return
+  if (!rechargeAmount.value || rechargeAmount.value === 0) {
+    ElMessage.warning('金额不能为 0')
+    return
+  }
+  saving.value = true
+  try {
+    const res = await rechargeSp(rechargingSp.value.id, rechargeAmount.value, rechargeRemark.value || undefined)
+    if (res.code === 200) {
+      ElMessage.success(`操作成功，当前余额 ${formatAmount(res.data.balanceAfter)} 元`)
+      rechargeDialogVisible.value = false
+      fetchData()
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
+  } finally { saving.value = false }
+}
+
+// ==================== 余额流水 ====================
+
+const openTransactionsDrawer = (row: Sp) => {
+  txSp.value = row
+  txPage.value = 1
+  txDrawerVisible.value = true
+  fetchTransactions()
+}
+
+const fetchTransactions = async () => {
+  if (!txSp.value) return
+  txLoading.value = true
+  try {
+    const res = await getSpTransactions(txSp.value.id, txPage.value, txSize.value)
+    if (res.code === 200) { txList.value = res.data.list; txTotal.value = res.data.total }
+  } finally { txLoading.value = false }
+}
+
 onMounted(() => { fetchData(); fetchChannels() })
 </script>
 
@@ -289,6 +432,26 @@ onMounted(() => { fetchData(); fetchChannels() })
 .channel-all {
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.balance-cell {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.amount-in {
+  color: var(--success, #67c23a);
+}
+
+.amount-out {
+  color: var(--danger, #f56c6c);
+}
+
+.form-tip {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 2px;
 }
 
 .bind-tip {

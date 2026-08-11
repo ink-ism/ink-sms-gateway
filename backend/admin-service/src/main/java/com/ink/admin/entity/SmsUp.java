@@ -11,6 +11,7 @@ public class SmsUp {
 
     private Long id;
     private String msgId;
+    private String spId;
     private String srcTerminalId;
     private String destId;
     private String msgContent;
@@ -20,4 +21,7 @@ public class SmsUp {
     private String reportStat;
     private String channelCode;
     private LocalDateTime createTime;
+
+    /** 关联下行短信内容（列表查询时 LEFT JOIN 填充） */
+    private String downMsgContent;
 }

@@ -50,6 +50,10 @@ cmpp:
     keywords: R,RD,TD,T,N,退订,0000
     # 黑名单过期天数（惰性过期）
     blacklist-expire-days: 180
+  # 限流配置：SP 限速值按客户配置（ink_sp.rate_limit）
+  rate-limit:
+    # REST 入口单 IP 每秒发送上限（0-不限制）
+    ip-per-second: 10
 
 # 日志配置
 logging:

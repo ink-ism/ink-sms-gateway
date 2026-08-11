@@ -29,10 +29,7 @@ CREATE TABLE IF NOT EXISTS ink_admin_user (
 
 -- 插入默认管理员账号（密码为123456）
 INSERT IGNORE INTO ink_admin_user (username, password, email, phone, nickname, role, status) VALUES
-('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVYITi', 'admin@ink.com', '13800000000', '超级管理员', 'super_admin', 1);
-
--- 确保默认管理员密码正确
-UPDATE ink_admin_user SET password = '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVYITi' WHERE username = 'admin';
+('admin', '$2a$10$HELbPEARrQpCTenHqp3VbeHBxlvbkvJ8BhTTYP1j8sirl.Qyo.ftW', 'admin@ink.com', '13800000000', '超级管理员', 'super_admin', 1);
 
 -- 创建通道配置表
 CREATE TABLE IF NOT EXISTS ink_channel (
@@ -49,6 +46,7 @@ CREATE TABLE IF NOT EXISTS ink_channel (
     max_reconnect_interval INT DEFAULT 60 COMMENT '最大重连间隔（秒）',
     connect_timeout INT DEFAULT 5000 COMMENT '连接超时（毫秒）',
     max_concurrent INT DEFAULT 10 COMMENT '最大并发数',
+    cost_price DECIMAL(8,4) DEFAULT 0.03 COMMENT '通道成本价（元/条）',
     status TINYINT DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
     description VARCHAR(255) DEFAULT NULL COMMENT '通道描述',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -73,6 +71,8 @@ CREATE TABLE IF NOT EXISTS ink_sms_down (
     status TINYINT DEFAULT 0 COMMENT '状态：0-已提交, 1-发送成功, 2-发送失败, 3-投递成功(DELIVRD)',
     status_report VARCHAR(20) DEFAULT NULL COMMENT '状态报告结果',
     error_msg VARCHAR(255) DEFAULT NULL COMMENT '错误信息',
+    fee DECIMAL(8,4) DEFAULT NULL COMMENT '客户扣费金额（元）',
+    cost DECIMAL(8,4) DEFAULT NULL COMMENT '通道成本金额（元）',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     INDEX idx_dest_terminal (dest_terminal_id),
     INDEX idx_status (status),
@@ -108,6 +108,9 @@ CREATE TABLE IF NOT EXISTS ink_sp (
     sp_id VARCHAR(30) NOT NULL UNIQUE COMMENT '客户标识（CMPP Source_Addr）',
     sp_secret VARCHAR(100) NOT NULL COMMENT '共享密钥',
     name VARCHAR(50) NOT NULL COMMENT '客户名称',
+    balance DECIMAL(12,4) DEFAULT 0 COMMENT '账户余额（元）',
+    unit_price DECIMAL(8,4) DEFAULT 0.05 COMMENT '售价（元/条）',
+    rate_limit INT DEFAULT 20 COMMENT '每秒发送上限（0-不限制）',
     status TINYINT DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
     description VARCHAR(255) DEFAULT NULL COMMENT '客户描述',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -155,3 +158,71 @@ CREATE TABLE IF NOT EXISTS ink_push_queue (
     INDEX idx_sp_status (sp_id, status),
     INDEX idx_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='下游离线推送队列表';
+
+-- 创建客户余额流水表
+CREATE TABLE IF NOT EXISTS ink_sp_transaction (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    sp_id VARCHAR(30) NOT NULL COMMENT '客户标识',
+    type VARCHAR(10) NOT NULL COMMENT '类型：RECHARGE-充值, DEDUCT-扣费, REFUND-返还',
+    amount DECIMAL(12,4) NOT NULL COMMENT '变动金额（正数入账，负数出账）',
+    balance_after DECIMAL(12,4) NOT NULL COMMENT '变动后余额',
+    ref_msg_id VARCHAR(64) DEFAULT NULL COMMENT '关联消息ID（扣费/返还时）',
+    remark VARCHAR(255) DEFAULT NULL COMMENT '备注',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_sp_id (sp_id),
+    INDEX idx_type (type),
+    INDEX idx_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户余额流水表';
+
+-- 创建短信签名表
+CREATE TABLE IF NOT EXISTS ink_signature (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    content VARCHAR(30) NOT NULL COMMENT '签名内容（如：【INK科技】）',
+    sp_id VARCHAR(30) DEFAULT NULL COMMENT '归属客户标识（空=平台全局）',
+    status TINYINT DEFAULT 0 COMMENT '状态：0-待审核, 1-已通过, 2-已驳回',
+    remark VARCHAR(255) DEFAULT NULL COMMENT '备注',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_sp_id (sp_id),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短信签名表';
+
+-- 创建短信模板表
+CREATE TABLE IF NOT EXISTS ink_template (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL COMMENT '模板名称',
+    content VARCHAR(500) NOT NULL COMMENT '模板内容',
+    signature_id BIGINT DEFAULT NULL COMMENT '关联签名ID',
+    status TINYINT DEFAULT 0 COMMENT '状态：0-待审核, 1-已通过, 2-已驳回',
+    remark VARCHAR(255) DEFAULT NULL COMMENT '备注',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_signature_id (signature_id),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短信模板表';
+
+-- 创建敏感词表
+CREATE TABLE IF NOT EXISTS ink_sensitive_word (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    word VARCHAR(100) NOT NULL UNIQUE COMMENT '敏感词',
+    status TINYINT DEFAULT 1 COMMENT '状态：0-禁用, 1-启用',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='敏感词表';
+
+-- 创建操作审计日志表
+CREATE TABLE IF NOT EXISTS ink_audit_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    admin_id BIGINT DEFAULT NULL COMMENT '管理员ID',
+    username VARCHAR(50) DEFAULT NULL COMMENT '管理员用户名',
+    module VARCHAR(30) NOT NULL COMMENT '模块：CHANNEL/SP/ADMIN/BLACKLIST/SIGNATURE/TEMPLATE/SENSITIVE',
+    action VARCHAR(30) NOT NULL COMMENT '操作：CREATE/UPDATE/DELETE/ENABLE/DISABLE/RECHARGE/APPROVE/REJECT',
+    target VARCHAR(100) DEFAULT NULL COMMENT '操作对象标识',
+    detail VARCHAR(1000) DEFAULT NULL COMMENT '参数摘要',
+    ip VARCHAR(45) DEFAULT NULL COMMENT '操作IP',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+    INDEX idx_module (module),
+    INDEX idx_action (action),
+    INDEX idx_username (username),
+    INDEX idx_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作审计日志表';

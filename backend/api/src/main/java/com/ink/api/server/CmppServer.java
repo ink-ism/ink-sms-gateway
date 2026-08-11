@@ -1,7 +1,10 @@
 package com.ink.api.server;
 
 import com.ink.api.config.CmppServerConfig;
+import com.ink.api.service.BillingService;
 import com.ink.api.service.DownstreamPushService;
+import com.ink.api.service.RateLimiterService;
+import com.ink.api.service.SensitiveWordService;
 import com.ink.api.service.SmsRecordService;
 import com.ink.api.service.SpAccountService;
 import com.ink.api.session.SpSessionManager;
@@ -31,6 +34,9 @@ public class CmppServer {
     private final SmsRecordService smsRecordService;
     private final SpAccountService spAccountService;
     private final DownstreamPushService pushService;
+    private final BillingService billingService;
+    private final RateLimiterService rateLimiterService;
+    private final SensitiveWordService sensitiveWordService;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
@@ -41,13 +47,19 @@ public class CmppServer {
                       CmppConnectionManager connectionManager,
                       SmsRecordService smsRecordService,
                       SpAccountService spAccountService,
-                      DownstreamPushService pushService) {
+                      DownstreamPushService pushService,
+                      BillingService billingService,
+                      RateLimiterService rateLimiterService,
+                      SensitiveWordService sensitiveWordService) {
         this.serverConfig = serverConfig;
         this.sessionManager = sessionManager;
         this.connectionManager = connectionManager;
         this.smsRecordService = smsRecordService;
         this.spAccountService = spAccountService;
         this.pushService = pushService;
+        this.billingService = billingService;
+        this.rateLimiterService = rateLimiterService;
+        this.sensitiveWordService = sensitiveWordService;
     }
 
     @PostConstruct
@@ -57,6 +69,9 @@ public class CmppServer {
         CmppServerHandler.setSmsRecordService(smsRecordService);
         CmppServerHandler.setSpAccountService(spAccountService);
         CmppServerHandler.setPushService(pushService);
+        CmppServerHandler.setBillingService(billingService);
+        CmppServerHandler.setRateLimiterService(rateLimiterService);
+        CmppServerHandler.setSensitiveWordService(sensitiveWordService);
 
         bossGroup = new NioEventLoopGroup(serverConfig.getBossThreads());
         workerGroup = new NioEventLoopGroup(serverConfig.getWorkerThreads());

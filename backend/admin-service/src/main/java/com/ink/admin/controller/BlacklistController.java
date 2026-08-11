@@ -1,5 +1,6 @@
 package com.ink.admin.controller;
 
+import com.ink.admin.audit.Audit;
 import com.ink.admin.service.BlacklistManageService;
 import com.ink.common.utils.Result;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,6 +45,7 @@ public class BlacklistController {
 
     @Operation(summary = "移除黑名单")
     @DeleteMapping("/{id}")
+    @Audit(module = "BLACKLIST", action = "DELETE")
     public Result<String> removeBlacklist(@PathVariable @Parameter(description = "黑名单ID") Long id) {
         blacklistManageService.removeBlacklist(id);
         return Result.success("黑名单移除成功");

@@ -1,5 +1,5 @@
 import request from '../utils/axios'
-import type { ApiResponse, Sp, SpListData } from '../types'
+import type { ApiResponse, Sp, SpListData, SpTransactionListData } from '../types'
 
 /** 获取客户列表 */
 export function getSpList(page: number, size: number, keyword?: string) {
@@ -46,4 +46,16 @@ export function getSpChannels(id: number) {
 /** 全量替换客户绑定通道 */
 export function bindSpChannels(id: number, channelCodes: string[]) {
   return request.put<any, ApiResponse<string>>(`/admin/sp/${id}/channels`, { channelCodes })
+}
+
+/** 客户充值/调账 */
+export function rechargeSp(id: number, amount: number, remark?: string) {
+  return request.post<any, ApiResponse<{ balanceAfter: number }>>(`/admin/sp/${id}/recharge`, { amount, remark })
+}
+
+/** 获取客户余额流水 */
+export function getSpTransactions(id: number, page: number, size: number) {
+  return request.get<any, ApiResponse<SpTransactionListData>>(`/admin/sp/${id}/transactions`, {
+    params: { page, size }
+  })
 }

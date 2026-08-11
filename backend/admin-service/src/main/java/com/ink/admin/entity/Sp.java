@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.experimental.Accessors;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -28,6 +29,15 @@ public class Sp {
 
     /** 客户名称 */
     private String name;
+
+    /** 账户余额（元） */
+    private BigDecimal balance;
+
+    /** 售价（元/条） */
+    private BigDecimal unitPrice;
+
+    /** 每秒发送上限（0-不限制） */
+    private Integer rateLimit;
 
     /** 状态：0-禁用，1-启用 */
     private Integer status;

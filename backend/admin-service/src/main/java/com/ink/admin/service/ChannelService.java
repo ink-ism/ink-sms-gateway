@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -94,6 +95,9 @@ public class ChannelService {
         if (channel.getMaxConcurrent() == null) {
             channel.setMaxConcurrent(10);
         }
+        if (channel.getCostPrice() == null) {
+            channel.setCostPrice(new BigDecimal("0.03"));
+        }
 
         if (channelMapper.insert(channel) <= 0) {
             throw new BusinessException("创建通道失败");
@@ -114,6 +118,9 @@ public class ChannelService {
             throw new BusinessException("通道编码已存在");
         }
         channel.setUpdateTime(LocalDateTime.now());
+        if (channel.getCostPrice() == null) {
+            channel.setCostPrice(existing.getCostPrice());
+        }
         if (channelMapper.update(channel) <= 0) {
             throw new BusinessException("更新通道失败");
         }

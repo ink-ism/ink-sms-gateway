@@ -11,6 +11,7 @@
     <!-- 导航菜单（配置驱动） -->
     <el-menu
       :default-active="activeMenu"
+      :default-openeds="defaultOpeneds"
       :collapse="collapsed"
       :collapse-transition="false"
       router
@@ -53,8 +54,8 @@ import { computed } from 'vue'
 import type { Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  ChatDotRound, HomeFilled, UserFilled, Connection, Avatar, CircleClose,
-  Download, Upload, Setting, Expand, Fold
+  ChatDotRound, HomeFilled, UserFilled, User, Connection, Avatar, CircleClose,
+  Download, Upload, Setting, Expand, Fold, TrendCharts, Document, Lock, Notebook, Operation
 } from '@element-plus/icons-vue'
 
 interface MenuItem {
@@ -73,13 +74,17 @@ const router = useRouter()
 
 const activeMenu = computed(() => route.path)
 
+/** 当前路由所在分组自动展开 */
+const defaultOpeneds = computed(() =>
+  menus.filter(m => m.children?.some(c => c.path === route.path)).map(m => m.key)
+)
+
 /** 菜单配置：与路由一一对应 */
 const menus: MenuItem[] = [
   { key: '/dashboard', path: '/dashboard', title: '仪表盘', icon: HomeFilled },
-  { key: '/users', path: '/users', title: '用户管理', icon: UserFilled },
-  { key: '/channels', path: '/channels', title: '通道管理', icon: Connection },
+  { key: '/stats', path: '/stats', title: '数据统计', icon: TrendCharts },
   { key: '/sp', path: '/sp', title: '客户管理', icon: Avatar },
-  { key: '/blacklist', path: '/blacklist', title: '黑名单管理', icon: CircleClose },
+  { key: '/channels', path: '/channels', title: '通道管理', icon: Connection },
   {
     key: 'sms',
     title: '短信管理',
@@ -89,7 +94,26 @@ const menus: MenuItem[] = [
       { path: '/sms/up', title: '上行短信', icon: Upload }
     ]
   },
-  { key: '/profile', path: '/profile', title: '个人中心', icon: Setting }
+  {
+    key: 'ops',
+    title: '运营管理',
+    icon: Operation,
+    children: [
+      { path: '/blacklist', title: '黑名单管理', icon: CircleClose },
+      { path: '/sensitive', title: '敏感词管理', icon: Lock },
+      { path: '/sign-template', title: '签名模板', icon: Document }
+    ]
+  },
+  {
+    key: 'sys',
+    title: '系统管理',
+    icon: Setting,
+    children: [
+      { path: '/users', title: '用户管理', icon: UserFilled },
+      { path: '/audit', title: '审计日志', icon: Notebook },
+      { path: '/profile', title: '个人中心', icon: User }
+    ]
+  }
 ]
 </script>
 

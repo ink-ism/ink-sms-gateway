@@ -1,7 +1,9 @@
 package com.ink.admin.service;
 
+import com.ink.admin.dto.SmsUpDetail;
 import com.ink.admin.entity.SmsUp;
 import com.ink.admin.mapper.SmsUpMapper;
+import com.ink.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,4 +38,27 @@ public class SmsUpService {
         }
         return smsUpMapper.countByKeyword(keyword);
     }
+
+    /**
+     * 删除上行短信记录
+     */
+    public void deleteById(Long id) {
+        int rows = smsUpMapper.deleteById(id);
+        if (rows == 0) {
+            throw new BusinessException("上行短信记录不存在");
+        }
+        log.info("上行短信记录已删除: id={}", id);
+    }
+
+    /**
+     * 查询上行短信详情（含关联下行短信与通道信息）
+     */
+    public SmsUpDetail getDetail(Long id) {
+        SmsUpDetail detail = smsUpMapper.findDetailById(id);
+        if (detail == null) {
+            throw new BusinessException("上行短信记录不存在");
+        }
+        return detail;
+    }
 }
+

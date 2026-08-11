@@ -58,4 +58,21 @@
         DELETE FROM ink_blacklist WHERE id = #{id}
     </delete>
 
+    <!-- 新增或更新黑名单（按 channel_code + phone 去重） -->
+    <insert id="upsert" parameterType="com.ink.admin.entity.Blacklist">
+        INSERT INTO ink_blacklist (channel_code, phone, keyword, source_mo_id, expire_time)
+        VALUES (#{channelCode}, #{phone}, #{keyword}, #{sourceMoId}, #{expireTime})
+        ON DUPLICATE KEY UPDATE
+            keyword = VALUES(keyword),
+            source_mo_id = VALUES(source_mo_id),
+            expire_time = VALUES(expire_time)
+    </insert>
+
+    <!-- 查询指定通道+手机号是否已在黑名单中 -->
+    <select id="existsByChannelAndPhone" resultType="int">
+        SELECT COUNT(*) FROM ink_blacklist
+        WHERE channel_code = #{channelCode} AND phone = #{phone}
+          AND expire_time > NOW()
+    </select>
+
 </mapper>

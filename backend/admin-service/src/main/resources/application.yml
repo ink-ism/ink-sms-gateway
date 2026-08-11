@@ -48,6 +48,11 @@ spring:
           min-idle: 0
           max-wait: -1ms
 
+# api 服务地址（敏感词刷新通知、通道状态查询）
+ink:
+  api-service:
+    url: http://localhost:8004
+
 # MyBatis配置
 mybatis:
   mapper-locations: classpath:mapper/*.xml
