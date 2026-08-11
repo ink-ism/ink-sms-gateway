@@ -5,6 +5,7 @@
     <resultMap id="BaseResultMap" type="com.ink.admin.entity.SmsUp">
         <id column="id" property="id"/>
         <result column="msg_id" property="msgId"/>
+        <result column="sp_id" property="spId"/>
         <result column="src_terminal_id" property="srcTerminalId"/>
         <result column="dest_id" property="destId"/>
         <result column="msg_content" property="msgContent"/>
@@ -14,27 +15,42 @@
         <result column="report_stat" property="reportStat"/>
         <result column="channel_code" property="channelCode"/>
         <result column="create_time" property="createTime"/>
+        <result column="down_msg_content" property="downMsgContent"/>
     </resultMap>
 
     <sql id="Base_Columns">
-        id, msg_id, src_terminal_id, dest_id, msg_content, msg_fmt,
-        service_id, is_report, report_stat, channel_code, create_time
+        u.id, u.msg_id, u.sp_id, u.src_terminal_id, u.dest_id, u.msg_content, u.msg_fmt,
+        u.service_id, u.is_report, u.report_stat, u.channel_code, u.create_time
+    </sql>
+
+    <!-- 关联下行短信内容的 JOIN 片段（显式 COLLATE 解决两表排序规则不一致） -->
+    <sql id="JoinDown">
+        LEFT JOIN ink_sms_down d ON d.id = (
+            SELECT d2.id FROM ink_sms_down d2
+            WHERE d2.dest_terminal_id COLLATE utf8mb4_unicode_ci = u.src_terminal_id COLLATE utf8mb4_unicode_ci
+              AND d2.create_time &lt;= u.create_time
+            ORDER BY d2.create_time DESC, d2.id DESC
+            LIMIT 1
+        )
     </sql>
 
     <select id="findByPage" resultMap="BaseResultMap">
-        SELECT <include refid="Base_Columns"/>
-        FROM ink_sms_up ORDER BY create_time DESC
+        SELECT <include refid="Base_Columns"/>, d.msg_content AS down_msg_content
+        FROM ink_sms_up u
+        <include refid="JoinDown"/>
+        ORDER BY u.create_time DESC
         LIMIT #{offset}, #{size}
     </select>
 
     <select id="search" resultMap="BaseResultMap">
-        SELECT <include refid="Base_Columns"/>
-        FROM ink_sms_up
-        WHERE src_terminal_id LIKE CONCAT('%', #{keyword}, '%')
-           OR dest_id LIKE CONCAT('%', #{keyword}, '%')
-           OR msg_content LIKE CONCAT('%', #{keyword}, '%')
-           OR channel_code LIKE CONCAT('%', #{keyword}, '%')
-        ORDER BY create_time DESC
+        SELECT <include refid="Base_Columns"/>, d.msg_content AS down_msg_content
+        FROM ink_sms_up u
+        <include refid="JoinDown"/>
+        WHERE u.src_terminal_id LIKE CONCAT('%', #{keyword}, '%')
+           OR u.dest_id LIKE CONCAT('%', #{keyword}, '%')
+           OR u.msg_content LIKE CONCAT('%', #{keyword}, '%')
+           OR u.channel_code LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY u.create_time DESC
         LIMIT #{offset}, #{size}
     </select>
 
@@ -59,5 +75,54 @@
             #{serviceId}, #{isReport}, #{reportStat}, #{channelCode}, #{createTime}
         )
     </insert>
+
+    <!-- 删除上行短信记录 -->
+    <delete id="deleteById">
+        DELETE FROM ink_sms_up WHERE id = #{id}
+    </delete>
+
+    <!-- 查询上行短信详情（含关联下行短信与通道信息） -->
+    <resultMap id="DetailResultMap" type="com.ink.admin.dto.SmsUpDetail">
+        <id column="id" property="id"/>
+        <result column="msg_id" property="msgId"/>
+        <result column="sp_id" property="spId"/>
+        <result column="src_terminal_id" property="srcTerminalId"/>
+        <result column="dest_id" property="destId"/>
+        <result column="msg_content" property="msgContent"/>
+        <result column="msg_fmt" property="msgFmt"/>
+        <result column="service_id" property="serviceId"/>
+        <result column="is_report" property="isReport"/>
+        <result column="report_stat" property="reportStat"/>
+        <result column="channel_code" property="channelCode"/>
+        <result column="create_time" property="createTime"/>
+        <result column="down_msg_content" property="downMsgContent"/>
+        <result column="down_create_time" property="downCreateTime"/>
+        <result column="channel_name" property="channelName"/>
+        <result column="channel_host" property="channelHost"/>
+        <result column="channel_port" property="channelPort"/>
+        <result column="channel_status" property="channelStatus"/>
+    </resultMap>
+
+    <select id="findDetailById" resultMap="DetailResultMap">
+        SELECT u.id, u.msg_id, u.sp_id, u.src_terminal_id, u.dest_id,
+               u.msg_content, u.msg_fmt, u.service_id, u.is_report, u.report_stat,
+               u.channel_code, u.create_time,
+               d.msg_content AS down_msg_content,
+               d.create_time AS down_create_time,
+               c.name AS channel_name,
+               c.host AS channel_host,
+               c.port AS channel_port,
+               c.status AS channel_status
+        FROM ink_sms_up u
+        LEFT JOIN ink_sms_down d ON d.id = (
+            SELECT d2.id FROM ink_sms_down d2
+            WHERE d2.dest_terminal_id COLLATE utf8mb4_unicode_ci = u.src_terminal_id COLLATE utf8mb4_unicode_ci
+              AND d2.create_time &lt;= u.create_time
+            ORDER BY d2.create_time DESC, d2.id DESC
+            LIMIT 1
+        )
+        LEFT JOIN ink_channel c ON c.code COLLATE utf8mb4_unicode_ci = u.channel_code COLLATE utf8mb4_unicode_ci
+        WHERE u.id = #{id}
+    </select>
 
 </mapper>

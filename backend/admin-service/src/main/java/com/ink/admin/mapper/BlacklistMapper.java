@@ -26,4 +26,10 @@ public interface BlacklistMapper {
 
     /** 删除黑名单 */
     int deleteById(@Param("id") Long id);
+
+    /** 新增或更新黑名单（按 channel_code + phone 去重） */
+    int upsert(Blacklist blacklist);
+
+    /** 查询指定通道+手机号是否已在黑名单中 */
+    int existsByChannelAndPhone(@Param("channelCode") String channelCode, @Param("phone") String phone);
 }
