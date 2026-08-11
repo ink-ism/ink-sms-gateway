@@ -1,9 +1,11 @@
 package com.ink.admin.mapper;
 
 import com.ink.admin.entity.Sp;
+import com.ink.admin.entity.SpTransaction;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -44,6 +46,23 @@ public interface SpMapper {
 
     /** 检查客户标识是否存在 */
     boolean existsBySpId(@Param("spId") String spId);
+
+    // ==================== 余额与流水 ====================
+
+    /** 充值/调账：原子更新余额 */
+    int addBalance(@Param("spId") String spId, @Param("amount") BigDecimal amount);
+
+    /** 查询客户当前余额 */
+    BigDecimal findBalance(@Param("spId") String spId);
+
+    /** 写入余额流水 */
+    int insertTransaction(SpTransaction transaction);
+
+    /** 分页查询客户流水 */
+    List<SpTransaction> findTransactionsByPage(@Param("spId") String spId, @Param("offset") int offset, @Param("limit") int limit);
+
+    /** 查询客户流水总数 */
+    int countTransactions(@Param("spId") String spId);
 
     // ==================== 通道绑定 ====================
 

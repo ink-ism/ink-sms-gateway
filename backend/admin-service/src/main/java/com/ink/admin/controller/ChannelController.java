@@ -1,5 +1,6 @@
 package com.ink.admin.controller;
 
+import com.ink.admin.audit.Audit;
 import com.ink.admin.entity.Channel;
 import com.ink.admin.service.ChannelService;
 import com.ink.common.utils.Result;
@@ -63,6 +64,7 @@ public class ChannelController {
 
     @Operation(summary = "创建通道")
     @PostMapping
+    @Audit(module = "CHANNEL", action = "CREATE")
     public Result<String> createChannel(@Valid @RequestBody Channel channel) {
         channelService.createChannel(channel);
         return Result.success("通道创建成功");
@@ -70,6 +72,7 @@ public class ChannelController {
 
     @Operation(summary = "更新通道")
     @PutMapping("/{id}")
+    @Audit(module = "CHANNEL", action = "UPDATE")
     public Result<String> updateChannel(@PathVariable @Parameter(description = "通道ID") Long id,
                                         @Valid @RequestBody Channel channel) {
         channel.setId(id);
@@ -79,6 +82,7 @@ public class ChannelController {
 
     @Operation(summary = "删除通道")
     @DeleteMapping("/{id}")
+    @Audit(module = "CHANNEL", action = "DELETE")
     public Result<String> deleteChannel(@PathVariable @Parameter(description = "通道ID") Long id) {
         channelService.deleteChannel(id);
         return Result.success("通道删除成功");
@@ -86,6 +90,7 @@ public class ChannelController {
 
     @Operation(summary = "启用通道")
     @PutMapping("/{id}/enable")
+    @Audit(module = "CHANNEL", action = "ENABLE")
     public Result<String> enableChannel(@PathVariable @Parameter(description = "通道ID") Long id) {
         channelService.enableChannel(id);
         return Result.success("通道已启用");
@@ -93,6 +98,7 @@ public class ChannelController {
 
     @Operation(summary = "禁用通道")
     @PutMapping("/{id}/disable")
+    @Audit(module = "CHANNEL", action = "DISABLE")
     public Result<String> disableChannel(@PathVariable @Parameter(description = "通道ID") Long id) {
         channelService.disableChannel(id);
         return Result.success("通道已禁用");

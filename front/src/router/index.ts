@@ -69,6 +69,30 @@ const routes: Array<RouteRecordRaw> = [
         name: 'SmsUp',
         component: () => import('../views/SmsUp.vue'),
         meta: { title: '上行短信' }
+      },
+      {
+        path: 'stats',
+        name: 'Statistics',
+        component: () => import('../views/Statistics.vue'),
+        meta: { title: '数据统计' }
+      },
+      {
+        path: 'sign-template',
+        name: 'SignTemplate',
+        component: () => import('../views/SignTemplate.vue'),
+        meta: { title: '签名模板' }
+      },
+      {
+        path: 'sensitive',
+        name: 'SensitiveWords',
+        component: () => import('../views/SensitiveWords.vue'),
+        meta: { title: '敏感词管理' }
+      },
+      {
+        path: 'audit',
+        name: 'AuditLog',
+        component: () => import('../views/AuditLog.vue'),
+        meta: { title: '审计日志' }
       }
     ]
   },

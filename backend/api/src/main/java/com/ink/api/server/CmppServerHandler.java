@@ -13,7 +13,10 @@ import com.ink.channel.cmpp.message.CmppSubmitResponseMessage;
 import com.ink.channel.cmpp.message.CmppTerminateResponseMessage;
 import com.ink.channel.cmpp.util.CmppAuthUtil;
 import com.ink.channel.session.CmppSession;
+import com.ink.api.service.BillingService;
 import com.ink.api.service.DownstreamPushService;
+import com.ink.api.service.RateLimiterService;
+import com.ink.api.service.SensitiveWordService;
 import com.ink.api.service.SpAccountService;
 import com.ink.api.service.SmsRecordService;
 import com.ink.core.connection.CmppConnectionManager;
@@ -22,6 +25,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.timeout.IdleStateEvent;
 import lombok.extern.slf4j.Slf4j;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 
@@ -48,8 +52,26 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
     /** 下游推送服务（通过静态注入，可为 null） */
     private static DownstreamPushService pushService;
 
+    /** 计费服务（通过静态注入，可为 null） */
+    private static BillingService billingService;
+
+    /** 限流服务（通过静态注入，可为 null） */
+    private static RateLimiterService rateLimiterService;
+
+    /** 敏感词服务（通过静态注入，可为 null） */
+    private static SensitiveWordService sensitiveWordService;
+
     /** Submit 响应结果码：号码已退订（黑名单拦截，自定义码） */
     private static final int SUBMIT_RESULT_BLACKLISTED = 9;
+
+    /** Submit 响应结果码：内容命中敏感词（自定义码） */
+    private static final int SUBMIT_RESULT_SENSITIVE = 8;
+
+    /** Submit 响应结果码：余额不足（自定义码） */
+    private static final int SUBMIT_RESULT_INSUFFICIENT_BALANCE = 6;
+
+    /** Submit 响应结果码：发送限速（自定义码） */
+    private static final int SUBMIT_RESULT_RATE_LIMITED = 10;
 
     public static void setConnectionManager(CmppConnectionManager manager) {
         connectionManager = manager;
@@ -65,6 +87,18 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
 
     public static void setPushService(DownstreamPushService service) {
         pushService = service;
+    }
+
+    public static void setBillingService(BillingService service) {
+        billingService = service;
+    }
+
+    public static void setRateLimiterService(RateLimiterService service) {
+        rateLimiterService = service;
+    }
+
+    public static void setSensitiveWordService(SensitiveWordService service) {
+        sensitiveWordService = service;
     }
 
     public CmppServerHandler(CmppServerConfig serverConfig, SpSessionManager sessionManager) {
@@ -155,6 +189,7 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
 
     /**
      * 处理 Submit 短信提交请求
+     * 拦截顺序：限流 → 敏感词 → 上游连接检查 → 余额预扣 → 转发（失败返还）
      */
     private void handleSubmit(int sequenceId, byte[] body) {
         if (!session.isAuthenticated()) {
@@ -176,56 +211,107 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
         String uuidPart = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         String clientMsgId = "CMPP" + timestamp + uuidPart;
 
-        // 转发到上游 CMPP 服务器（携带客户标识：绑定通道选路 + 黑名单拦截）
-        if (connectionManager != null && connectionManager.isConnected()) {
-            connectionManager.submit(submitReq, spId).whenComplete((result, ex) -> {
-                CmppSubmitResponseMessage submitResp = new CmppSubmitResponseMessage();
-                if (ex == null) {
-                    submitResp.setMsgId(result.getServerMsgId());
-                    submitResp.setResult(0);
-                    String serverMsgIdHex = Long.toHexString(result.getServerMsgId());
-                    String channelCode = result.getChannelCode();
-                    log.info("SP Submit 转发成功: serverMsgId=0x{}, channel={}", serverMsgIdHex, channelCode);
-                    // 记录下行短信
-                    if (smsRecordService != null) {
-                        smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, spId, submitReq.getSrcId(),
-                                destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
-                                submitReq.getServiceId(), channelCode, 1, null);
-                    }
-                } else if (isBlacklisted(ex)) {
-                    // 黑名单拦截：返回自定义结果码并落失败记录
-                    submitResp.setMsgId(0);
-                    submitResp.setResult(SUBMIT_RESULT_BLACKLISTED);
-                    log.warn("SP Submit 被黑名单拦截: spId={}, dest={}", spId, destPhone);
-                    if (smsRecordService != null) {
-                        smsRecordService.recordSmsDown(clientMsgId, null, spId, submitReq.getSrcId(),
-                                destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
-                                submitReq.getServiceId(), null, 2, "号码已退订");
-                    }
-                } else {
-                    submitResp.setMsgId(0);
-                    submitResp.setResult(2);
-                    log.warn("SP Submit 转发失败: {}", ex.getMessage());
-                    // 记录失败的下行短信
-                    if (smsRecordService != null) {
-                        smsRecordService.recordSmsDown(clientMsgId, null, spId, submitReq.getSrcId(),
-                                destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
-                                submitReq.getServiceId(), null, 2, ex.getMessage());
-                    }
-                }
-                sendResponse(CmppCommandType.SUBMIT_RESP.getCommandId(), sequenceId, submitResp.toBytes());
-            });
-        } else {
+        // 1. 限流拦截
+        if (rateLimiterService != null && !rateLimiterService.tryAcquireSp(spId)) {
+            log.warn("SP Submit 被限速拦截: spId={}, dest={}", spId, destPhone);
+            rejectSubmit(sequenceId, clientMsgId, spId, submitReq, destPhone,
+                    SUBMIT_RESULT_RATE_LIMITED, "发送频率超限");
+            return;
+        }
+
+        // 2. 敏感词拦截
+        if (sensitiveWordService != null) {
+            String hitWord = sensitiveWordService.match(submitReq.getMsgContent());
+            if (hitWord != null) {
+                log.warn("SP Submit 命中敏感词: spId={}, dest={}, word={}", spId, destPhone, hitWord);
+                rejectSubmit(sequenceId, clientMsgId, spId, submitReq, destPhone,
+                        SUBMIT_RESULT_SENSITIVE, "内容包含敏感词");
+                return;
+            }
+        }
+
+        // 3. 上游连接检查
+        if (connectionManager == null || !connectionManager.isConnected()) {
             log.warn("上游 CMPP 未连接，无法转发 Submit");
+            rejectSubmit(sequenceId, clientMsgId, spId, submitReq, destPhone, 1, "上游CMPP未连接");
+            return;
+        }
+
+        // 4. 余额预扣（返回 null 表示余额不足）
+        BigDecimal fee = billingService != null ? billingService.tryDeduct(spId, clientMsgId) : BigDecimal.ZERO;
+        if (fee == null) {
+            log.warn("SP Submit 余额不足: spId={}, dest={}", spId, destPhone);
+            rejectSubmit(sequenceId, clientMsgId, spId, submitReq, destPhone,
+                    SUBMIT_RESULT_INSUFFICIENT_BALANCE, "余额不足");
+            return;
+        }
+
+        // 5. 转发到上游 CMPP 服务器（携带客户标识：绑定通道选路 + 黑名单拦截）
+        connectionManager.submit(submitReq, spId).whenComplete((result, ex) -> {
             CmppSubmitResponseMessage submitResp = new CmppSubmitResponseMessage();
-            submitResp.setResult(1);
-            // 记录失败的下行短信
-            if (smsRecordService != null) {
-                smsRecordService.recordSmsDown(clientMsgId, null, spId, submitReq.getSrcId(),
-                        destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
-                        submitReq.getServiceId(), null, 2, "上游CMPP未连接");
+            if (ex == null) {
+                submitResp.setMsgId(result.getServerMsgId());
+                submitResp.setResult(0);
+                String serverMsgIdHex = Long.toHexString(result.getServerMsgId());
+                String channelCode = result.getChannelCode();
+                log.info("SP Submit 转发成功: serverMsgId=0x{}, channel={}", serverMsgIdHex, channelCode);
+                // 记录下行短信（含扣费与通道成本）
+                if (smsRecordService != null) {
+                    BigDecimal cost = billingService != null ? billingService.findCostPrice(channelCode) : null;
+                    smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, spId, submitReq.getSrcId(),
+                            destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
+                            submitReq.getServiceId(), channelCode, 1, null, fee, cost);
+                }
+            } else if (isBlacklisted(ex)) {
+                // 黑名单拦截：返还预扣余额，返回自定义结果码
+                refundFee(spId, fee, clientMsgId);
+                submitResp.setMsgId(0);
+                submitResp.setResult(SUBMIT_RESULT_BLACKLISTED);
+                log.warn("SP Submit 被黑名单拦截: spId={}, dest={}", spId, destPhone);
+                if (smsRecordService != null) {
+                    smsRecordService.recordSmsDown(clientMsgId, null, spId, submitReq.getSrcId(),
+                            destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
+                            submitReq.getServiceId(), null, 2, "号码已退订", null, null);
+                }
+            } else {
+                // 转发失败：返还预扣余额
+                refundFee(spId, fee, clientMsgId);
+                submitResp.setMsgId(0);
+                submitResp.setResult(2);
+                log.warn("SP Submit 转发失败: {}", ex.getMessage());
+                if (smsRecordService != null) {
+                    smsRecordService.recordSmsDown(clientMsgId, null, spId, submitReq.getSrcId(),
+                            destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
+                            submitReq.getServiceId(), null, 2, ex.getMessage(), null, null);
+                }
             }
             sendResponse(CmppCommandType.SUBMIT_RESP.getCommandId(), sequenceId, submitResp.toBytes());
+        });
+    }
+
+    /**
+     * 拒绝 Submit：返回指定结果码并落失败记录（未扣费，fee/cost 为 null）
+     */
+    private void rejectSubmit(int sequenceId, String clientMsgId, String spId,
+                              CmppSubmitRequestMessage submitReq, String destPhone,
+                              int resultCode, String errorMsg) {
+        if (smsRecordService != null) {
+            smsRecordService.recordSmsDown(clientMsgId, null, spId, submitReq.getSrcId(),
+                    destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
+                    submitReq.getServiceId(), null, 2, errorMsg, null, null);
+        }
+        CmppSubmitResponseMessage submitResp = new CmppSubmitResponseMessage();
+        submitResp.setMsgId(0);
+        submitResp.setResult(resultCode);
+        sendResponse(CmppCommandType.SUBMIT_RESP.getCommandId(), sequenceId, submitResp.toBytes());
+    }
+
+    /**
+     * 返还预扣余额（金额为 0 或计费服务不可用时跳过）
+     */
+    private void refundFee(String spId, BigDecimal fee, String clientMsgId) {
+        if (billingService != null) {
+            billingService.refund(spId, fee, clientMsgId);
         }
     }
 

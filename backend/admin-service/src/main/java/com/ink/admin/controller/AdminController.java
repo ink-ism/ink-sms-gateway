@@ -1,6 +1,7 @@
 package com.ink.admin.controller;
 
 import com.ink.common.utils.Result;
+import com.ink.admin.audit.Audit;
 import com.ink.admin.dto.request.PasswordUpdateRequest;
 import com.ink.admin.dto.request.AdminLoginRequest;
 import com.ink.admin.dto.request.AdminCreateRequest;
@@ -36,6 +37,7 @@ public class AdminController {
 
     @Operation(summary = "创建管理员（需管理员登录）")
     @PostMapping("/create")
+    @Audit(module = "ADMIN", action = "CREATE")
     public Result<String> createAdmin(@RequestHeader("X-Admin-Id") String adminId,
                                       @Valid @RequestBody AdminCreateRequest request) {
         Admin admin = Admin.create(request.getUsername(), request.getPassword(),
@@ -70,6 +72,7 @@ public class AdminController {
 
     @Operation(summary = "更新管理员信息")
     @PutMapping("/info")
+    @Audit(module = "ADMIN", action = "UPDATE")
     public Result<String> updateAdminInfo(@RequestHeader("X-Admin-Id") String adminId,
                                          @Valid @RequestBody AdminUpdateRequest request) {
         Admin admin = new Admin();
@@ -86,6 +89,7 @@ public class AdminController {
 
     @Operation(summary = "修改密码")
     @PutMapping("/password")
+    @Audit(module = "ADMIN", action = "UPDATE")
     public Result<String> updatePassword(@RequestHeader("X-Admin-Id") String adminId,
                                          @Valid @RequestBody PasswordUpdateRequest request) {
         adminService.updatePassword(Long.parseLong(adminId), request.getOldPassword(), request.getNewPassword());
@@ -110,6 +114,7 @@ public class AdminController {
 
     @Operation(summary = "禁用管理员")
     @PutMapping("/{adminId}/disable")
+    @Audit(module = "ADMIN", action = "DISABLE")
     public Result<String> disableAdmin(@PathVariable @Parameter(description = "管理员ID") Long adminId) {
         adminService.disableAdmin(adminId);
         return Result.success("禁用成功");
@@ -117,6 +122,7 @@ public class AdminController {
 
     @Operation(summary = "启用管理员")
     @PutMapping("/{adminId}/enable")
+    @Audit(module = "ADMIN", action = "ENABLE")
     public Result<String> enableAdmin(@PathVariable @Parameter(description = "管理员ID") Long adminId) {
         adminService.enableAdmin(adminId);
         return Result.success("启用成功");
@@ -132,6 +138,7 @@ public class AdminController {
 
     @Operation(summary = "重置密码（临时接口）")
     @PostMapping("/reset-password")
+    // 不记录审计：参数含明文密码
     public Result<String> resetPassword(@RequestParam("username") String username, @RequestParam("newPassword") String newPassword) {
         adminService.resetPassword(username, newPassword);
         return Result.success("密码重置成功");

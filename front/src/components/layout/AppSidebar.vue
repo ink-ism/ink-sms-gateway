@@ -54,7 +54,7 @@ import type { Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ChatDotRound, HomeFilled, UserFilled, Connection, Avatar, CircleClose,
-  Download, Upload, Setting, Expand, Fold
+  Download, Upload, Setting, Expand, Fold, TrendCharts, Document, Lock, Notebook
 } from '@element-plus/icons-vue'
 
 interface MenuItem {
@@ -89,6 +89,10 @@ const menus: MenuItem[] = [
       { path: '/sms/up', title: '上行短信', icon: Upload }
     ]
   },
+  { key: '/stats', path: '/stats', title: '数据统计', icon: TrendCharts },
+  { key: '/sign-template', path: '/sign-template', title: '签名模板', icon: Document },
+  { key: '/sensitive', path: '/sensitive', title: '敏感词管理', icon: Lock },
+  { key: '/audit', path: '/audit', title: '审计日志', icon: Notebook },
   { key: '/profile', path: '/profile', title: '个人中心', icon: Setting }
 ]
 </script>

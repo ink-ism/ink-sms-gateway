@@ -94,7 +94,7 @@ public class ChannelRefreshController {
                         smsRecordService.recordSmsDown(clientMsgId, null, DownstreamPushService.REST_SP_ID,
                                 submitReq.getSrcId(), destPhone,
                                 request.getContent(), submitReq.getMsgFmt(), submitReq.getServiceId(),
-                                channelCode, 2, errorMsg);
+                                channelCode, 2, errorMsg, null, null);
                         response.setSuccess(false);
                         response.setMessage("发送失败: " + errorMsg);
                         return Result.<TestSendResponse>error(response.getMessage());
@@ -105,7 +105,7 @@ public class ChannelRefreshController {
                         smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, DownstreamPushService.REST_SP_ID,
                                 submitReq.getSrcId(), destPhone,
                                 request.getContent(), submitReq.getMsgFmt(), submitReq.getServiceId(),
-                                channelCode, 1, null);
+                                channelCode, 1, null, null, null);
                         response.setSuccess(true);
                         response.setMessage("发送成功");
                         response.setServerMsgId(serverMsgIdHex);

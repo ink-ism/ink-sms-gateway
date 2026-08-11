@@ -1,6 +1,7 @@
 package com.ink.admin.service;
 
 import com.ink.admin.entity.Sp;
+import com.ink.admin.entity.SpTransaction;
 import com.ink.admin.mapper.SpMapper;
 import com.ink.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -73,6 +75,15 @@ public class SpService {
         if (sp.getStatus() == null) {
             sp.setStatus(1);
         }
+        if (sp.getBalance() == null) {
+            sp.setBalance(BigDecimal.ZERO);
+        }
+        if (sp.getUnitPrice() == null) {
+            sp.setUnitPrice(new BigDecimal("0.05"));
+        }
+        if (sp.getRateLimit() == null) {
+            sp.setRateLimit(20);
+        }
         if (spMapper.insert(sp) <= 0) {
             throw new BusinessException("创建客户失败");
         }
@@ -96,6 +107,12 @@ public class SpService {
         sp.setUpdateTime(LocalDateTime.now());
         if (sp.getStatus() == null) {
             sp.setStatus(existing.getStatus());
+        }
+        if (sp.getUnitPrice() == null) {
+            sp.setUnitPrice(existing.getUnitPrice());
+        }
+        if (sp.getRateLimit() == null) {
+            sp.setRateLimit(existing.getRateLimit());
         }
         if (spMapper.update(sp) <= 0) {
             throw new BusinessException("更新客户失败");
@@ -175,5 +192,60 @@ public class SpService {
                 spMapper.insertChannel(spId, code.trim());
             }
         }
+    }
+
+    // ==================== 余额与流水 ====================
+
+    /**
+     * 充值/调账（金额可正可负）
+     */
+    @Transactional
+    public BigDecimal recharge(Long id, BigDecimal amount, String remark) {
+        Sp sp = spMapper.findById(id);
+        if (sp == null) {
+            throw new BusinessException("客户不存在");
+        }
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) == 0) {
+            throw new BusinessException("充值金额不能为 0");
+        }
+        if (spMapper.addBalance(sp.getSpId(), amount) <= 0) {
+            throw new BusinessException("充值失败");
+        }
+        BigDecimal balanceAfter = spMapper.findBalance(sp.getSpId());
+        if (balanceAfter != null && balanceAfter.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("调账后余额不能为负");
+        }
+        SpTransaction tx = new SpTransaction()
+                .setSpId(sp.getSpId())
+                .setType("RECHARGE")
+                .setAmount(amount)
+                .setBalanceAfter(balanceAfter)
+                .setRemark(remark != null && !remark.isBlank() ? remark : "管理员充值/调账")
+                .setCreateTime(LocalDateTime.now());
+        spMapper.insertTransaction(tx);
+        log.info("客户充值成功: spId={}, amount={}, balanceAfter={}", sp.getSpId(), amount, balanceAfter);
+        return balanceAfter;
+    }
+
+    /**
+     * 分页查询客户余额流水
+     */
+    public List<SpTransaction> getTransactions(Long id, int page, int size) {
+        Sp sp = spMapper.findById(id);
+        if (sp == null) {
+            throw new BusinessException("客户不存在");
+        }
+        return spMapper.findTransactionsByPage(sp.getSpId(), (page - 1) * size, size);
+    }
+
+    /**
+     * 查询客户流水总数
+     */
+    public int getTransactionCount(Long id) {
+        Sp sp = spMapper.findById(id);
+        if (sp == null) {
+            throw new BusinessException("客户不存在");
+        }
+        return spMapper.countTransactions(sp.getSpId());
     }
 }

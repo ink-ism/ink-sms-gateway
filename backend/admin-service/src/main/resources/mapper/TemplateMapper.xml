@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ink.admin.mapper.TemplateMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.ink.admin.entity.Template">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="content" property="content"/>
+        <result column="signature_id" property="signatureId"/>
+        <result column="signature_content" property="signatureContent"/>
+        <result column="status" property="status"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 基础列（LEFT JOIN 签名内容） -->
+    <sql id="Base_Columns">
+        t.id, t.name, t.content, t.signature_id, t.status, t.remark,
+        t.create_time, t.update_time, s.content AS signature_content
+    </sql>
+
+    <!-- 根据ID查询 -->
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_template t
+        LEFT JOIN ink_signature s ON t.signature_id = s.id
+        WHERE t.id = #{id}
+    </select>
+
+    <!-- 分页查询 -->
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_template t
+        LEFT JOIN ink_signature s ON t.signature_id = s.id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (t.name LIKE CONCAT('%', #{keyword}, '%')
+                  OR t.content LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="status != null">
+                AND t.status = #{status}
+            </if>
+        </where>
+        ORDER BY t.create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 总数 -->
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM ink_template t
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (t.name LIKE CONCAT('%', #{keyword}, '%')
+                  OR t.content LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="status != null">
+                AND t.status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.ink.admin.entity.Template" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ink_template (name, content, signature_id, status, remark, create_time, update_time)
+        VALUES (#{name}, #{content}, #{signatureId}, #{status}, #{remark}, #{createTime}, #{updateTime})
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.ink.admin.entity.Template">
+        UPDATE ink_template
+        SET name = #{name},
+            content = #{content},
+            signature_id = #{signatureId},
+            status = #{status},
+            remark = #{remark},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 更新审核状态 -->
+    <update id="updateStatus">
+        UPDATE ink_template
+        SET status = #{status},
+            remark = #{remark},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 删除 -->
+    <delete id="deleteById">
+        DELETE FROM ink_template WHERE id = #{id}
+    </delete>
+
+</mapper>

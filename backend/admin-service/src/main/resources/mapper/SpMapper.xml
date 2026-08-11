@@ -8,6 +8,9 @@
         <result column="sp_id" property="spId"/>
         <result column="sp_secret" property="spSecret"/>
         <result column="name" property="name"/>
+        <result column="balance" property="balance"/>
+        <result column="unit_price" property="unitPrice"/>
+        <result column="rate_limit" property="rateLimit"/>
         <result column="status" property="status"/>
         <result column="description" property="description"/>
         <result column="create_time" property="createTime"/>
@@ -16,7 +19,7 @@
 
     <!-- 基础列 -->
     <sql id="Base_Columns">
-        id, sp_id, sp_secret, name, status, description, create_time, update_time
+        id, sp_id, sp_secret, name, balance, unit_price, rate_limit, status, description, create_time, update_time
     </sql>
 
     <!-- 根据ID查询 -->
@@ -64,16 +67,18 @@
 
     <!-- 插入 -->
     <insert id="insert" parameterType="com.ink.admin.entity.Sp" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO ink_sp (sp_id, sp_secret, name, status, description, create_time, update_time)
-        VALUES (#{spId}, #{spSecret}, #{name}, #{status}, #{description}, #{createTime}, #{updateTime})
+        INSERT INTO ink_sp (sp_id, sp_secret, name, balance, unit_price, rate_limit, status, description, create_time, update_time)
+        VALUES (#{spId}, #{spSecret}, #{name}, #{balance}, #{unitPrice}, #{rateLimit}, #{status}, #{description}, #{createTime}, #{updateTime})
     </insert>
 
-    <!-- 更新 -->
+    <!-- 更新（balance 不在此处修改，仅通过充值/扣费变更） -->
     <update id="update" parameterType="com.ink.admin.entity.Sp">
         UPDATE ink_sp
         SET sp_id = #{spId},
             sp_secret = #{spSecret},
             name = #{name},
+            unit_price = #{unitPrice},
+            rate_limit = #{rateLimit},
             status = #{status},
             description = #{description},
             update_time = #{updateTime}
@@ -93,6 +98,49 @@
     <!-- 检查客户标识是否存在 -->
     <select id="existsBySpId" resultType="boolean">
         SELECT COUNT(*) > 0 FROM ink_sp WHERE sp_id = #{spId}
+    </select>
+
+    <!-- ==================== 余额与流水 ==================== -->
+
+    <!-- 充值/调账：原子更新余额 -->
+    <update id="addBalance">
+        UPDATE ink_sp SET balance = balance + #{amount} WHERE sp_id = #{spId}
+    </update>
+
+    <!-- 查询客户当前余额 -->
+    <select id="findBalance" resultType="java.math.BigDecimal">
+        SELECT balance FROM ink_sp WHERE sp_id = #{spId}
+    </select>
+
+    <!-- 流水结果映射 -->
+    <resultMap id="TransactionResultMap" type="com.ink.admin.entity.SpTransaction">
+        <id column="id" property="id"/>
+        <result column="sp_id" property="spId"/>
+        <result column="type" property="type"/>
+        <result column="amount" property="amount"/>
+        <result column="balance_after" property="balanceAfter"/>
+        <result column="ref_msg_id" property="refMsgId"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <!-- 写入余额流水 -->
+    <insert id="insertTransaction" parameterType="com.ink.admin.entity.SpTransaction" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ink_sp_transaction (sp_id, type, amount, balance_after, ref_msg_id, remark, create_time)
+        VALUES (#{spId}, #{type}, #{amount}, #{balanceAfter}, #{refMsgId}, #{remark}, #{createTime})
+    </insert>
+
+    <!-- 分页查询客户流水 -->
+    <select id="findTransactionsByPage" resultMap="TransactionResultMap">
+        SELECT id, sp_id, type, amount, balance_after, ref_msg_id, remark, create_time
+        FROM ink_sp_transaction WHERE sp_id = #{spId}
+        ORDER BY create_time DESC, id DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 查询客户流水总数 -->
+    <select id="countTransactions" resultType="int">
+        SELECT COUNT(*) FROM ink_sp_transaction WHERE sp_id = #{spId}
     </select>
 
     <!-- ==================== 通道绑定 ==================== -->

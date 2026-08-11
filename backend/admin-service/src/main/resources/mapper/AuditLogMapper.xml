@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ink.admin.mapper.AuditLogMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.ink.admin.entity.AuditLog">
+        <id column="id" property="id"/>
+        <result column="admin_id" property="adminId"/>
+        <result column="username" property="username"/>
+        <result column="module" property="module"/>
+        <result column="action" property="action"/>
+        <result column="target" property="target"/>
+        <result column="detail" property="detail"/>
+        <result column="ip" property="ip"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <!-- 基础列 -->
+    <sql id="Base_Columns">
+        id, admin_id, username, module, action, target, detail, ip, create_time
+    </sql>
+
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.ink.admin.entity.AuditLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ink_audit_log (admin_id, username, module, action, target, detail, ip, create_time)
+        VALUES (#{adminId}, #{username}, #{module}, #{action}, #{target}, #{detail}, #{ip}, #{createTime})
+    </insert>
+
+    <!-- 过滤条件 -->
+    <sql id="Filter_Where">
+        <where>
+            <if test="module != null and module != ''">
+                AND module = #{module}
+            </if>
+            <if test="action != null and action != ''">
+                AND action = #{action}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (username LIKE CONCAT('%', #{keyword}, '%')
+                  OR target LIKE CONCAT('%', #{keyword}, '%')
+                  OR detail LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+    </sql>
+
+    <!-- 分页查询 -->
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_audit_log
+        <include refid="Filter_Where"/>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 总数 -->
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM ink_audit_log
+        <include refid="Filter_Where"/>
+    </select>
+
+</mapper>

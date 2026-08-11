@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ink.admin.mapper.SensitiveWordMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.ink.admin.entity.SensitiveWord">
+        <id column="id" property="id"/>
+        <result column="word" property="word"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <!-- 基础列 -->
+    <sql id="Base_Columns">
+        id, word, status, create_time
+    </sql>
+
+    <!-- 根据ID查询 -->
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_sensitive_word WHERE id = #{id}
+    </select>
+
+    <!-- 分页查询 -->
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Columns"/>
+        FROM ink_sensitive_word
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND word LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 总数 -->
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM ink_sensitive_word
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND word LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- 检查敏感词是否存在 -->
+    <select id="existsByWord" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM ink_sensitive_word
+        WHERE word = #{word}
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.ink.admin.entity.SensitiveWord" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ink_sensitive_word (word, status, create_time)
+        VALUES (#{word}, #{status}, #{createTime})
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.ink.admin.entity.SensitiveWord">
+        UPDATE ink_sensitive_word
+        SET word = #{word},
+            status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 更新状态 -->
+    <update id="updateStatus">
+        UPDATE ink_sensitive_word SET status = #{status} WHERE id = #{id}
+    </update>
+
+    <!-- 删除 -->
+    <delete id="deleteById">
+        DELETE FROM ink_sensitive_word WHERE id = #{id}
+    </delete>
+
+</mapper>

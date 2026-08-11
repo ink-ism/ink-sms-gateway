@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.experimental.Accessors;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -53,6 +54,9 @@ public class Channel {
 
     /** 最大并发数 */
     private Integer maxConcurrent;
+
+    /** 通道成本价（元/条） */
+    private BigDecimal costPrice;
 
     /** 状态：0-禁用，1-启用 */
     private Integer status;

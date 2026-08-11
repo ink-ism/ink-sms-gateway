@@ -2,10 +2,10 @@
   <div class="dashboard-page">
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <StatCard class="card-enter stagger-delay" label="用户总数" :value="statsData.userCount" :icon="User" tone="accent" />
+      <StatCard class="card-enter stagger-delay" label="客户总数" :value="statsData.spCount" :icon="User" tone="accent" />
       <StatCard class="card-enter stagger-delay" label="通道总数" :value="statsData.channelCount" :icon="Connection" tone="violet" />
       <StatCard class="card-enter stagger-delay" label="在线通道" :value="statsData.connectedCount" :icon="CircleCheck" tone="success" />
-      <StatCard class="card-enter stagger-delay" label="系统状态" :value="statsData.systemStatus" :icon="Monitor" tone="warning" />
+      <StatCard class="card-enter stagger-delay" label="今日发送" :value="statsData.todayTotal" :icon="Monitor" tone="warning" />
     </div>
 
     <!-- 图表区域 -->
@@ -62,15 +62,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { PieChart, LineChart } from 'echarts/charts'
 import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
 import { User, Monitor, Connection, CircleCheck } from '@element-plus/icons-vue'
-import { getUserCount } from '../api/user'
 import { getChannelList, getChannelPoolStatus } from '../api/channel'
+import { getStatsOverview, getStatsTrend } from '../api/stats'
 import { chartColors, darkTooltip, areaGradient } from '../utils/echarts-theme'
 import StatCard from '../components/common/StatCard.vue'
 
@@ -78,10 +78,10 @@ use([CanvasRenderer, PieChart, LineChart, TitleComponent, TooltipComponent, Lege
 
 // 统计数据
 const statsData = ref({
-  userCount: 0,
+  spCount: 0,
   channelCount: 0,
   connectedCount: 0,
-  systemStatus: '运行中'
+  todayTotal: 0
 })
 
 // 通道状态环形图数据
@@ -137,27 +137,33 @@ const channelChartOption = computed(() => {
   }
 })
 
-// 短信趋势数据
+// 短信趋势数据（来自 /stats/trend 接口）
 const trendRange = ref('7d')
-const trendData = ref({
-  '7d': {
-    dates: ['07-07', '07-08', '07-09', '07-10', '07-11', '07-12', '07-13'],
-    sent: [1250, 1380, 1520, 1420, 1680, 1750, 1890],
-    success: [1200, 1320, 1480, 1380, 1620, 1700, 1840]
-  },
-  '30d': {
-    dates: Array.from({ length: 30 }, (_, i) => {
-      const d = new Date()
-      d.setDate(d.getDate() - 29 + i)
-      return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    }),
-    sent: Array.from({ length: 30 }, () => Math.floor(Math.random() * 800 + 1200)),
-    success: Array.from({ length: 30 }, () => Math.floor(Math.random() * 750 + 1100))
-  }
+const trendData = ref<{ dates: string[]; sent: number[]; success: number[] }>({
+  dates: [],
+  sent: [],
+  success: []
 })
 
+const loadTrend = async () => {
+  try {
+    const days = trendRange.value === '30d' ? 30 : 7
+    const res = await getStatsTrend(days)
+    const points = res.data || []
+    trendData.value = {
+      dates: points.map(p => p.date.slice(5)),
+      sent: points.map(p => Number(p.total)),
+      success: points.map(p => Number(p.success))
+    }
+  } catch (error) {
+    console.error('加载趋势数据失败:', error)
+  }
+}
+
+watch(trendRange, () => loadTrend())
+
 const trendChartOption = computed(() => {
-  const data = trendData.value[trendRange.value as keyof typeof trendData.value]
+  const data = trendData.value
   return {
     tooltip: {
       trigger: 'axis',
@@ -225,9 +231,14 @@ const activities = ref([
 // 加载数据
 const loadData = async () => {
   try {
-    // 用户数
-    const userRes = await getUserCount()
-    statsData.value.userCount = userRes.data || 0
+    // 概览统计（客户数/今日发送）
+    try {
+      const overviewRes = await getStatsOverview()
+      statsData.value.spCount = overviewRes.data.spTotal || 0
+      statsData.value.todayTotal = overviewRes.data.todayTotal || 0
+    } catch {
+      // 概览接口失败不影响通道状态展示
+    }
 
     // 通道数据
     const channelRes = await getChannelList(1, 100)
@@ -272,6 +283,7 @@ const loadData = async () => {
 
 onMounted(() => {
   loadData()
+  loadTrend()
 })
 </script>
 

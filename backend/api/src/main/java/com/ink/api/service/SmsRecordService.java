@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.concurrent.*;
 
@@ -42,7 +43,13 @@ public class SmsRecordService {
             // 检查列是否存在，不存在则添加（兼容存量库）
             ensureColumn("ink_sms_down", "server_msg_id", "VARCHAR(32) DEFAULT NULL AFTER msg_id");
             ensureColumn("ink_sms_down", "sp_id", "VARCHAR(30) DEFAULT NULL AFTER server_msg_id");
+            ensureColumn("ink_sms_down", "fee", "DECIMAL(8,4) DEFAULT NULL AFTER error_msg");
+            ensureColumn("ink_sms_down", "cost", "DECIMAL(8,4) DEFAULT NULL AFTER fee");
             ensureColumn("ink_sms_up", "sp_id", "VARCHAR(30) DEFAULT NULL AFTER msg_id");
+            ensureColumn("ink_sp", "balance", "DECIMAL(12,4) DEFAULT 0 AFTER name");
+            ensureColumn("ink_sp", "unit_price", "DECIMAL(8,4) DEFAULT 0.05 AFTER balance");
+            ensureColumn("ink_sp", "rate_limit", "INT DEFAULT 20 AFTER unit_price");
+            ensureColumn("ink_channel", "cost_price", "DECIMAL(8,4) DEFAULT 0.03 AFTER max_concurrent");
             ensureIndex("ink_sms_down", "idx_server_msg_id", "server_msg_id");
             ensureIndex("ink_sms_down", "idx_sp_id", "sp_id");
 
@@ -92,6 +99,64 @@ public class SmsRecordService {
                     "create_time DATETIME DEFAULT CURRENT_TIMESTAMP," +
                     "INDEX idx_sp_status (sp_id, status)," +
                     "INDEX idx_create_time (create_time)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='下游离线推送队列表'");
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS ink_sp_transaction (" +
+                    "id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                    "sp_id VARCHAR(30) NOT NULL," +
+                    "type VARCHAR(10) NOT NULL," +
+                    "amount DECIMAL(12,4) NOT NULL," +
+                    "balance_after DECIMAL(12,4) NOT NULL," +
+                    "ref_msg_id VARCHAR(64) DEFAULT NULL," +
+                    "remark VARCHAR(255) DEFAULT NULL," +
+                    "create_time DATETIME DEFAULT CURRENT_TIMESTAMP," +
+                    "INDEX idx_sp_id (sp_id)," +
+                    "INDEX idx_type (type)," +
+                    "INDEX idx_create_time (create_time)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户余额流水表'");
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS ink_signature (" +
+                    "id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                    "content VARCHAR(30) NOT NULL," +
+                    "sp_id VARCHAR(30) DEFAULT NULL," +
+                    "status TINYINT DEFAULT 0," +
+                    "remark VARCHAR(255) DEFAULT NULL," +
+                    "create_time DATETIME DEFAULT CURRENT_TIMESTAMP," +
+                    "update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP," +
+                    "INDEX idx_sp_id (sp_id)," +
+                    "INDEX idx_status (status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短信签名表'");
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS ink_template (" +
+                    "id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                    "name VARCHAR(50) NOT NULL," +
+                    "content VARCHAR(500) NOT NULL," +
+                    "signature_id BIGINT DEFAULT NULL," +
+                    "status TINYINT DEFAULT 0," +
+                    "remark VARCHAR(255) DEFAULT NULL," +
+                    "create_time DATETIME DEFAULT CURRENT_TIMESTAMP," +
+                    "update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP," +
+                    "INDEX idx_signature_id (signature_id)," +
+                    "INDEX idx_status (status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短信模板表'");
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS ink_sensitive_word (" +
+                    "id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                    "word VARCHAR(100) NOT NULL UNIQUE," +
+                    "status TINYINT DEFAULT 1," +
+                    "create_time DATETIME DEFAULT CURRENT_TIMESTAMP," +
+                    "INDEX idx_status (status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='敏感词表'");
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS ink_audit_log (" +
+                    "id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                    "admin_id BIGINT DEFAULT NULL," +
+                    "username VARCHAR(50) DEFAULT NULL," +
+                    "module VARCHAR(30) NOT NULL," +
+                    "action VARCHAR(30) NOT NULL," +
+                    "target VARCHAR(100) DEFAULT NULL," +
+                    "detail VARCHAR(1000) DEFAULT NULL," +
+                    "ip VARCHAR(45) DEFAULT NULL," +
+                    "create_time DATETIME DEFAULT CURRENT_TIMESTAMP," +
+                    "INDEX idx_module (module)," +
+                    "INDEX idx_action (action)," +
+                    "INDEX idx_username (username)," +
+                    "INDEX idx_create_time (create_time)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作审计日志表'");
 
             // 确保表使用 utf8mb4 字符集
             jdbcTemplate.execute("ALTER TABLE ink_sms_down CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
@@ -132,12 +197,15 @@ public class SmsRecordService {
      * @param clientMsgId 客户端生成的唯一消息 ID（作为数据库主键）
      * @param serverMsgId CMPP 服务端返回的消息 ID（用于状态报告匹配）
      * @param spId        发送客户标识（REST 发送为 "REST"）
+     * @param fee         客户扣费金额（不计费时传 null）
+     * @param cost        通道成本金额（不计费时传 null）
      */
     public void recordSmsDown(String clientMsgId, String serverMsgId, String spId, String srcId, String destTerminalId,
                               String msgContent, int msgFmt, String serviceId,
-                              String channelCode, int status, String errorMsg) {
+                              String channelCode, int status, String errorMsg,
+                              BigDecimal fee, BigDecimal cost) {
         dbWriteExecutor.execute(() -> doRecordSmsDown(clientMsgId, serverMsgId, spId, srcId, destTerminalId,
-                msgContent, msgFmt, serviceId, channelCode, status, errorMsg));
+                msgContent, msgFmt, serviceId, channelCode, status, errorMsg, fee, cost));
     }
 
     /**
@@ -163,11 +231,12 @@ public class SmsRecordService {
 
     private void doRecordSmsDown(String clientMsgId, String serverMsgId, String spId, String srcId, String destTerminalId,
                                  String msgContent, int msgFmt, String serviceId,
-                                 String channelCode, int status, String errorMsg) {
+                                 String channelCode, int status, String errorMsg,
+                                 BigDecimal fee, BigDecimal cost) {
         try {
             jdbcTemplate.update(
-                    "INSERT INTO ink_sms_down (msg_id, server_msg_id, sp_id, src_id, dest_terminal_id, msg_content, msg_fmt, service_id, channel_code, status, error_msg, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    clientMsgId, serverMsgId, spId, srcId, destTerminalId, msgContent, msgFmt, serviceId, channelCode, status, errorMsg, LocalDateTime.now()
+                    "INSERT INTO ink_sms_down (msg_id, server_msg_id, sp_id, src_id, dest_terminal_id, msg_content, msg_fmt, service_id, channel_code, status, error_msg, fee, cost, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    clientMsgId, serverMsgId, spId, srcId, destTerminalId, msgContent, msgFmt, serviceId, channelCode, status, errorMsg, fee, cost, LocalDateTime.now()
             );
             log.debug("下行短信记录已写入: clientMsgId={}, serverMsgId={}, spId={}, dest={}", clientMsgId, serverMsgId, spId, destTerminalId);
         } catch (Exception e) {

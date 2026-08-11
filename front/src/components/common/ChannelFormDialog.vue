@@ -30,6 +30,9 @@
           <el-form-item label="描述">
             <el-input v-model="formData.description" type="textarea" :rows="3" placeholder="可选备注描述" />
           </el-form-item>
+          <el-form-item label="成本价(元/条)">
+            <el-input-number v-model="formData.costPrice" :min="0" :precision="4" :step="0.01" controls-position="right" style="width: 100%" />
+          </el-form-item>
         </el-tab-pane>
 
         <!-- 认证配置 -->
@@ -110,6 +113,7 @@ const defaultForm = {
   code: '', name: '', host: '', port: 7890, spId: '', sharedSecret: '',
   version: 32, heartbeatInterval: 60, reconnectInterval: 10,
   maxReconnectInterval: 60, connectTimeout: 5000, maxConcurrent: 10,
+  costPrice: 0.03,
   status: 1, description: ''
 }
 const formData = reactive({ ...defaultForm })
@@ -133,7 +137,7 @@ const initForm = () => {
       spId: c.spId, sharedSecret: c.sharedSecret, version: c.version,
       heartbeatInterval: c.heartbeatInterval, reconnectInterval: c.reconnectInterval,
       maxReconnectInterval: c.maxReconnectInterval, connectTimeout: c.connectTimeout,
-      maxConcurrent: c.maxConcurrent, status: c.status, description: c.description
+      maxConcurrent: c.maxConcurrent, costPrice: c.costPrice ?? 0.03, status: c.status, description: c.description
     })
   } else {
     Object.assign(formData, defaultForm)

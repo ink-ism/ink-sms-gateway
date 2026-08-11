@@ -53,6 +53,11 @@
             <span class="mono">{{ row.maxConcurrent }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="成本价" width="90" align="right">
+          <template #default="{ row }">
+            <span class="mono">{{ row.costPrice != null ? Number(row.costPrice).toFixed(4) : '-' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="启用状态" width="90" align="center">
           <template #default="{ row }">
             <el-switch

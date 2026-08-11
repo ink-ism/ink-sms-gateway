@@ -69,6 +69,7 @@ export interface Channel {
   maxReconnectInterval: number
   connectTimeout: number
   maxConcurrent: number
+  costPrice: number | null
   status: number
   description: string
   createTime: string
@@ -130,6 +131,9 @@ export interface Sp {
   name: string
   status: number
   description: string
+  balance: number
+  unitPrice: number
+  rateLimit: number
   createTime: string
   updateTime: string
   channelCodes: string[]
@@ -141,6 +145,118 @@ export interface SpListData {
   total: number
   page: number
   size: number
+}
+
+/** 客户余额流水 */
+export interface SpTransaction {
+  id: number
+  spId: string
+  type: string
+  amount: number
+  balanceAfter: number
+  refMsgId: string | null
+  remark: string | null
+  createTime: string
+}
+
+/** 流水列表响应 */
+export interface SpTransactionListData {
+  list: SpTransaction[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 短信签名 */
+export interface Signature {
+  id: number
+  content: string
+  spId: string | null
+  status: number
+  remark: string | null
+  createTime: string
+  updateTime: string
+}
+
+/** 短信模板 */
+export interface Template {
+  id: number
+  name: string
+  content: string
+  signatureId: number | null
+  signatureContent: string | null
+  status: number
+  remark: string | null
+  createTime: string
+  updateTime: string
+}
+
+/** 敏感词 */
+export interface SensitiveWord {
+  id: number
+  word: string
+  status: number
+  createTime: string
+}
+
+/** 审计日志 */
+export interface AuditLog {
+  id: number
+  adminId: number | null
+  username: string | null
+  module: string
+  action: string
+  target: string | null
+  detail: string | null
+  ip: string | null
+  createTime: string
+}
+
+/** 通用分页列表响应 */
+export interface PageData<T> {
+  list: T[]
+  total: number
+  page: number
+  size: number
+}
+
+/** 看板概览 */
+export interface StatsOverview {
+  spTotal: number
+  spEnabled: number
+  channelTotal: number
+  channelEnabled: number
+  channelOnline: number
+  adminTotal: number
+  todayTotal: number
+  todaySuccess: number
+  todayFail: number
+  todayActiveSp: number
+}
+
+/** 按天趋势点 */
+export interface TrendPoint {
+  date: string
+  total: number
+  success: number
+}
+
+/** 通道维度统计 */
+export interface ChannelStat {
+  channelCode: string
+  total: number
+  success: number
+  fail: number
+  successRate: number
+}
+
+/** 客户维度统计 */
+export interface SpStat {
+  spId: string
+  total: number
+  success: number
+  fee: number
+  successRate: number
 }
 
 /** 退订黑名单记录 */

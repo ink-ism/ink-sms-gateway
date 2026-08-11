@@ -17,6 +17,7 @@
         <result column="max_reconnect_interval" property="maxReconnectInterval"/>
         <result column="connect_timeout" property="connectTimeout"/>
         <result column="max_concurrent" property="maxConcurrent"/>
+        <result column="cost_price" property="costPrice"/>
         <result column="status" property="status"/>
         <result column="description" property="description"/>
         <result column="create_time" property="createTime"/>
@@ -27,7 +28,7 @@
     <sql id="Base_Columns">
         id, name, code, host, port, sp_id, shared_secret, version,
         heartbeat_interval, reconnect_interval, max_reconnect_interval,
-        connect_timeout, max_concurrent, status, description,
+        connect_timeout, max_concurrent, cost_price, status, description,
         create_time, update_time
     </sql>
 
@@ -87,12 +88,12 @@
         INSERT INTO ink_channel (
             name, code, host, port, sp_id, shared_secret, version,
             heartbeat_interval, reconnect_interval, max_reconnect_interval,
-            connect_timeout, max_concurrent, status, description,
+            connect_timeout, max_concurrent, cost_price, status, description,
             create_time, update_time
         ) VALUES (
             #{name}, #{code}, #{host}, #{port}, #{spId}, #{sharedSecret}, #{version},
             #{heartbeatInterval}, #{reconnectInterval}, #{maxReconnectInterval},
-            #{connectTimeout}, #{maxConcurrent}, #{status}, #{description},
+            #{connectTimeout}, #{maxConcurrent}, #{costPrice}, #{status}, #{description},
             #{createTime}, #{updateTime}
         )
     </insert>
@@ -112,6 +113,7 @@
             max_reconnect_interval = #{maxReconnectInterval},
             connect_timeout = #{connectTimeout},
             max_concurrent = #{maxConcurrent},
+            cost_price = #{costPrice},
             status = #{status},
             description = #{description},
             update_time = #{updateTime}
