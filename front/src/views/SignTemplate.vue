@@ -21,7 +21,7 @@
             <el-table-column prop="id" label="ID" width="70" align="right">
               <template #default="{ row }"><span class="mono dim">{{ row.id }}</span></template>
             </el-table-column>
-            <el-table-column prop="content" label="签名内容" min-width="160">
+            <el-table-column prop="content" label="签名内容" width="150">
               <template #default="{ row }"><span class="code-chip">【{{ row.content }}】</span></template>
             </el-table-column>
             <el-table-column label="归属" width="130">
@@ -38,8 +38,8 @@
             <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip>
               <template #default="{ row }"><span class="dim">{{ row.remark || '-' }}</span></template>
             </el-table-column>
-            <el-table-column prop="createTime" label="创建时间" width="160">
-              <template #default="{ row }"><span class="mono dim">{{ row.createTime }}</span></template>
+            <el-table-column prop="createTime" label="创建时间" width="170">
+              <template #default="{ row }"><span class="mono dim">{{ formatDateTime(row.createTime) }}</span></template>
             </el-table-column>
             <el-table-column label="操作" width="220" fixed="right">
               <template #default="{ row }">
@@ -80,8 +80,8 @@
                 <el-tag size="small" :type="statusTagType(row.status)" round>{{ statusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="createTime" label="创建时间" width="160">
-              <template #default="{ row }"><span class="mono dim">{{ row.createTime }}</span></template>
+            <el-table-column prop="createTime" label="创建时间" width="170">
+              <template #default="{ row }"><span class="mono dim">{{ formatDateTime(row.createTime) }}</span></template>
             </el-table-column>
             <el-table-column label="操作" width="220" fixed="right">
               <template #default="{ row }">
@@ -140,6 +140,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageHeader from '../components/common/PageHeader.vue'
+import { formatDateTime } from '../utils/format'
 import {
   getSignatureList, createSignature, updateSignature, approveSignature, rejectSignature, deleteSignature,
   getTemplateList, createTemplate, updateTemplate, approveTemplate, rejectTemplate, deleteTemplate

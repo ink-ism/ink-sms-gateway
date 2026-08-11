@@ -16,7 +16,7 @@
     <div class="panel list-panel">
       <el-table :data="logs" v-loading="loading" size="small">
         <el-table-column prop="createTime" label="操作时间" width="170">
-          <template #default="{ row }"><span class="mono dim">{{ row.createTime }}</span></template>
+          <template #default="{ row }"><span class="mono dim">{{ formatDateTime(row.createTime) }}</span></template>
         </el-table-column>
         <el-table-column prop="username" label="操作人" width="120">
           <template #default="{ row }">
@@ -58,6 +58,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import { formatDateTime } from '../utils/format'
 import { getAuditLogs } from '../api/audit'
 import type { AuditLog } from '../types'
 

@@ -57,10 +57,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="expireTime" label="过期时间" width="170">
-          <template #default="{ row }"><span class="mono dim-cell">{{ row.expireTime }}</span></template>
+          <template #default="{ row }"><span class="mono dim-cell">{{ formatDateTime(row.expireTime) }}</span></template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="170">
-          <template #default="{ row }"><span class="mono dim-cell">{{ row.createTime }}</span></template>
+          <template #default="{ row }"><span class="mono dim-cell">{{ formatDateTime(row.createTime) }}</span></template>
         </el-table-column>
         <el-table-column label="操作" width="100" fixed="right" align="center">
           <template #default="{ row }">
@@ -92,6 +92,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import { formatDateTime } from '../utils/format'
 import { getBlacklistList, removeBlacklist } from '../api/blacklist'
 import { getChannelList } from '../api/channel'
 import type { Blacklist, Channel } from '../types'

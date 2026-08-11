@@ -62,7 +62,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="170">
-          <template #default="{ row }"><span class="mono dim-cell">{{ row.createTime }}</span></template>
+          <template #default="{ row }"><span class="mono dim-cell">{{ formatDateTime(row.createTime) }}</span></template>
         </el-table-column>
         <el-table-column label="操作" width="360" fixed="right">
           <template #default="{ row }">
@@ -162,7 +162,7 @@
         </el-table-column>
         <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
         <el-table-column prop="createTime" label="时间" width="160">
-          <template #default="{ row }"><span class="mono dim-cell">{{ row.createTime }}</span></template>
+          <template #default="{ row }"><span class="mono dim-cell">{{ formatDateTime(row.createTime) }}</span></template>
         </el-table-column>
       </el-table>
       <div class="pagination-wrapper">
@@ -197,6 +197,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh } from '@element-plus/icons-vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import { formatDateTime } from '../utils/format'
 import { getSpList, createSp, updateSp, deleteSp, enableSp, disableSp, bindSpChannels, rechargeSp, getSpTransactions } from '../api/sp'
 import { getChannelList } from '../api/channel'
 import type { Sp, Channel, SpTransaction } from '../types'

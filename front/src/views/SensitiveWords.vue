@@ -29,7 +29,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180">
-          <template #default="{ row }"><span class="mono dim">{{ row.createTime }}</span></template>
+          <template #default="{ row }"><span class="mono dim">{{ formatDateTime(row.createTime) }}</span></template>
         </el-table-column>
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
@@ -69,6 +69,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageHeader from '../components/common/PageHeader.vue'
+import { formatDateTime } from '../utils/format'
 import {
   getSensitiveList, createSensitive, updateSensitive,
   enableSensitive, disableSensitive, deleteSensitive
