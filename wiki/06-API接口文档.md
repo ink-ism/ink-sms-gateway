@@ -541,6 +541,114 @@
 | `size` | int | 10 | 每页大小 |
 | `keyword` | string | - | 搜索关键字（手机号/内容） |
 
+**响应说明**：列表每条记录包含上行短信基本信息，同时通过 LEFT JOIN 关联 `ink_sms_down` 表返回 `downMsgContent` 字段（最近一条关联下行短信内容，关联规则：同一手机号 + 下行时间早于上行时间）。
+
+---
+
+### GET /api/admin/sms/up/{id}/detail — 上行短信详情
+
+**认证**：是
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `id` | long | 上行短信记录 ID |
+
+**成功响应**：
+
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": {
+    "id": 1,
+    "msgId": "74c1c0a31dd0d2ca",
+    "spId": "tsp01",
+    "srcTerminalId": "13800000000",
+    "destId": "10690000",
+    "msgContent": "短信内容",
+    "msgFmt": 15,
+    "serviceId": "",
+    "isReport": 0,
+    "reportStat": null,
+    "channelCode": "cmpp-moxan",
+    "createTime": "2026-07-09T16:29:06",
+    "downMsgContent": "关联的下行短信内容",
+    "downCreateTime": "2026-07-09T16:28:57",
+    "channelName": "测试通道",
+    "channelHost": "192.168.1.100",
+    "channelPort": 7891,
+    "channelStatus": 1
+  }
+}
+```
+
+**响应字段说明**：
+
+| 字段 | 说明 |
+|------|------|
+| `id` ~ `createTime` | 上行短信基本信息 |
+| `downMsgContent` | 关联下行短信内容（无关联时为 null） |
+| `downCreateTime` | 关联下行短信发送时间 |
+| `channelName` | 使用通道名称 |
+| `channelHost` | 通道服务器地址 |
+| `channelPort` | 通道服务器端口 |
+| `channelStatus` | 通道状态：0=禁用，1=启用 |
+
+---
+
+### DELETE /api/admin/sms/up/{id} — 删除上行短信记录
+
+**认证**：是
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `id` | long | 上行短信记录 ID |
+
+**成功响应**：
+
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": "删除成功"
+}
+```
+
+---
+
+### POST /api/admin/sms/up/{id}/blacklist — 将上行手机号加入黑名单
+
+**认证**：是
+
+**说明**：根据上行短信记录中的手机号（`srcTerminalId`）和通道编码（`channelCode`），将该号码加入对应通道的退订黑名单。黑名单有效期 180 天，同步写入 Redis 缓存。
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `id` | long | 上行短信记录 ID |
+
+**成功响应**：
+
+```json
+{
+  "code": 200,
+  "message": "操作成功",
+  "data": "已加入黑名单"
+}
+```
+
+**异常响应**：
+
+| code | message | 说明 |
+|------|---------|------|
+| 500 | 该号码在此通道已存在有效黑名单 | 重复加黑 |
+| 500 | 该上行记录缺少通道信息，无法加黑 | 记录无 channelCode |
+
 ---
 
 ## 客户管理接口
