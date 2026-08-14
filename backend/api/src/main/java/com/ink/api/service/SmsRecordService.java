@@ -248,10 +248,35 @@ public class SmsRecordService {
                                String msgContent, int msgFmt, String serviceId,
                                String channelCode) {
         try {
+            // 1. 插入上行记录
             jdbcTemplate.update(
                     "INSERT INTO ink_sms_up (msg_id, sp_id, src_terminal_id, dest_id, msg_content, msg_fmt, service_id, is_report, report_stat, channel_code, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)",
                     msgId, spId, srcTerminalId, destId, msgContent, msgFmt, serviceId, channelCode, LocalDateTime.now()
             );
+            
+            // 2. 获取刚插入的 up_id
+            Long upId = jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+            
+            // 3. 查询匹配的下行记录（最近一次向该手机号发送的，且时间早于上行）
+            String downMsgId = null;
+            try {
+                downMsgId = jdbcTemplate.queryForObject(
+                        "SELECT msg_id FROM ink_sms_down WHERE dest_terminal_id = ? AND create_time <= ? ORDER BY create_time DESC, id DESC LIMIT 1",
+                        String.class, srcTerminalId, LocalDateTime.now()
+                );
+            } catch (Exception e) {
+                // 未找到匹配的下行记录
+            }
+            
+            // 4. 插入关联记录
+            if (upId != null && downMsgId != null) {
+                jdbcTemplate.update(
+                        "INSERT INTO ink_sms_up_down_link (up_id, down_msg_id) VALUES (?, ?)",
+                        upId, downMsgId
+                );
+                log.debug("上行-下行关联已建立: upId={}, downMsgId={}", upId, downMsgId);
+            }
+            
             log.debug("上行短信记录已写入: msgId={}, spId={}, src={}", msgId, spId, srcTerminalId);
         } catch (Exception e) {
             log.error("写入上行短信记录失败: {}", e.getMessage(), e);

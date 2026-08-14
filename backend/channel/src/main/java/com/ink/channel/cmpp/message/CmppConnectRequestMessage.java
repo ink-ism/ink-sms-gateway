@@ -64,29 +64,44 @@ public class CmppConnectRequestMessage {
 
     /**
      * 从字节数组解析
+     * CMPP 2.0 规范 SourceAddr 为 6 字节，但实际部署中可能更长（兼容长 SP_ID）。
+     * 解析策略：从 body 总长度反推 SourceAddr 长度 = body.length - 27
      */
     public static CmppConnectRequestMessage fromBytes(byte[] body) {
         CmppConnectRequestMessage msg = new CmppConnectRequestMessage();
+        if (body == null || body.length < 33) {
+            return msg;
+        }
 
-        // SourceAddr (6 bytes)
-        byte[] spIdBytes = new byte[6];
-        System.arraycopy(body, 0, spIdBytes, 0, 6);
-        msg.setSourceAddr(new String(spIdBytes, StandardCharsets.US_ASCII).trim());
+        // SourceAddr: 动态长度 = body.length - 16(auth) - 1(version) - 10(timestamp)
+        int spAddrLen = body.length - 27;
+        if (spAddrLen < 6) spAddrLen = 6; // 至少 6 字节
+        byte[] spIdBytes = new byte[spAddrLen];
+        System.arraycopy(body, 0, spIdBytes, 0, spAddrLen);
+        msg.setSourceAddr(readFixedString(spIdBytes, 0, spAddrLen));
 
         // AuthenticatorClient (16 bytes)
         byte[] authBytes = new byte[16];
-        System.arraycopy(body, 6, authBytes, 0, 16);
+        System.arraycopy(body, spAddrLen, authBytes, 0, 16);
         msg.setAuthenticatorClient(authBytes);
 
         // Version (1 byte)
-        msg.setVersion(body[22]);
+        msg.setVersion(body[spAddrLen + 16]);
 
         // Timestamp (10 bytes)
         byte[] tsBytes = new byte[10];
-        System.arraycopy(body, 23, tsBytes, 0, 10);
+        System.arraycopy(body, spAddrLen + 17, tsBytes, 0, 10);
         msg.setTimestamp(new String(tsBytes, StandardCharsets.US_ASCII).trim());
 
         return msg;
+    }
+
+    /** 读取固定长度字符串（去除尾部 0x00） */
+    private static String readFixedString(byte[] buf, int pos, int length) {
+        if (pos + length > buf.length) return "";
+        int end = pos;
+        while (end < pos + length && buf[end] != 0) end++;
+        return new String(buf, pos, end - pos, StandardCharsets.US_ASCII).trim();
     }
 
     public int getCommandId() {

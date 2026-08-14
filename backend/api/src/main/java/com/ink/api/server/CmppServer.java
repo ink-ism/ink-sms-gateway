@@ -82,6 +82,7 @@ public class CmppServer {
                     .channel(NioServerSocketChannel.class)
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
+                    .childOption(ChannelOption.TCP_NODELAY, true)
                     .childHandler(new CmppServerInitializer(serverConfig, sessionManager));
 
             serverChannel = bootstrap.bind(serverConfig.getPort()).sync().channel();

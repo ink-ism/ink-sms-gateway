@@ -23,21 +23,16 @@
         u.service_id, u.is_report, u.report_stat, u.channel_code, u.create_time
     </sql>
 
-    <!-- 关联下行短信内容的 JOIN 片段（显式 COLLATE 解决两表排序规则不一致） -->
-    <sql id="JoinDown">
-        LEFT JOIN ink_sms_down d ON d.id = (
-            SELECT d2.id FROM ink_sms_down d2
-            WHERE d2.dest_terminal_id COLLATE utf8mb4_unicode_ci = u.src_terminal_id COLLATE utf8mb4_unicode_ci
-              AND d2.create_time &lt;= u.create_time
-            ORDER BY d2.create_time DESC, d2.id DESC
-            LIMIT 1
-        )
+    <!-- 通过关联表 JOIN 下行短信内容 -->
+    <sql id="JoinDownViaLink">
+        LEFT JOIN ink_sms_up_down_link l ON l.up_id = u.id
+        LEFT JOIN ink_sms_down d ON d.msg_id COLLATE utf8mb4_unicode_ci = l.down_msg_id COLLATE utf8mb4_unicode_ci
     </sql>
 
     <select id="findByPage" resultMap="BaseResultMap">
         SELECT <include refid="Base_Columns"/>, d.msg_content AS down_msg_content
         FROM ink_sms_up u
-        <include refid="JoinDown"/>
+        <include refid="JoinDownViaLink"/>
         ORDER BY u.create_time DESC
         LIMIT #{offset}, #{size}
     </select>
@@ -45,7 +40,7 @@
     <select id="search" resultMap="BaseResultMap">
         SELECT <include refid="Base_Columns"/>, d.msg_content AS down_msg_content
         FROM ink_sms_up u
-        <include refid="JoinDown"/>
+        <include refid="JoinDownViaLink"/>
         WHERE u.src_terminal_id LIKE CONCAT('%', #{keyword}, '%')
            OR u.dest_id LIKE CONCAT('%', #{keyword}, '%')
            OR u.msg_content LIKE CONCAT('%', #{keyword}, '%')
@@ -114,13 +109,8 @@
                c.port AS channel_port,
                c.status AS channel_status
         FROM ink_sms_up u
-        LEFT JOIN ink_sms_down d ON d.id = (
-            SELECT d2.id FROM ink_sms_down d2
-            WHERE d2.dest_terminal_id COLLATE utf8mb4_unicode_ci = u.src_terminal_id COLLATE utf8mb4_unicode_ci
-              AND d2.create_time &lt;= u.create_time
-            ORDER BY d2.create_time DESC, d2.id DESC
-            LIMIT 1
-        )
+        LEFT JOIN ink_sms_up_down_link l ON l.up_id = u.id
+        LEFT JOIN ink_sms_down d ON d.msg_id COLLATE utf8mb4_unicode_ci = l.down_msg_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN ink_channel c ON c.code COLLATE utf8mb4_unicode_ci = u.channel_code COLLATE utf8mb4_unicode_ci
         WHERE u.id = #{id}
     </select>
