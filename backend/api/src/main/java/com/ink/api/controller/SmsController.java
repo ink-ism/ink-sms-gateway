@@ -1,6 +1,8 @@
 package com.ink.api.controller;
 
 import com.ink.common.utils.Result;
+import com.ink.common.utils.PhoneCarrierUtil;
+import com.ink.common.utils.SignatureUtil;
 import com.ink.core.connection.CmppConnectionManager;
 import com.ink.core.connection.CmppConnectionManager.SubmitResult;
 import com.ink.api.service.DownstreamPushService;
@@ -67,6 +69,7 @@ public class SmsController {
 
         // 2. 签名/模板校验与内容组装
         String content = request.getContent();
+        String signatureText = null;
         if (request.getTemplateId() != null) {
             String templateContent = signatureTemplateService.findApprovedTemplate(request.getTemplateId());
             if (templateContent == null) {
@@ -79,16 +82,32 @@ public class SmsController {
                     return CompletableFuture.completedFuture(Result.error("签名不存在或未通过审核"));
                 }
             }
+            signatureText = signature;
             content = signatureTemplateService.assembleContent(templateContent, signature);
         } else if (request.getSignatureId() != null) {
             String signature = signatureTemplateService.findApprovedSignature(request.getSignatureId());
             if (signature == null) {
                 return CompletableFuture.completedFuture(Result.error("签名不存在或未通过审核"));
             }
+            signatureText = signature;
             content = signatureTemplateService.assembleContent(content != null ? content : "", signature);
         }
 
-        // 3. 敏感词过滤
+        // 3. 解析运营商
+        String carrier = PhoneCarrierUtil.resolve(request.getPhone());
+
+        // 3.1 若未显式指定签名，则从内容开头自动提取
+        if (signatureText == null) {
+            signatureText = SignatureUtil.extract(content);
+        }
+
+        // 3.2 签名必填校验
+        if (signatureText == null || signatureText.isBlank()) {
+            log.warn("REST 发送缺少签名: ip={}, phone={}", clientIp, request.getPhone());
+            return CompletableFuture.completedFuture(Result.error("短信内容缺少签名，请在内容开头添加【签名】"));
+        }
+
+        // 4. 敏感词过滤
         String hitWord = sensitiveWordService.match(content);
         if (hitWord != null) {
             log.warn("REST 发送命中敏感词: ip={}, phone={}, word={}", clientIp, request.getPhone(), hitWord);
@@ -97,7 +116,7 @@ public class SmsController {
             smsRecordService.recordSmsDown(rejectMsgId, null, DownstreamPushService.REST_SP_ID,
                     request.getSrcId(), request.getPhone(), content,
                     request.getMsgFmt() != null ? request.getMsgFmt() : 8, request.getServiceId(),
-                    null, 2, "内容包含敏感词", null, null);
+                    null, 2, "内容包含敏感词", null, null, signatureText, carrier);
             return CompletableFuture.completedFuture(Result.error("内容包含敏感词"));
         }
 
@@ -119,9 +138,12 @@ public class SmsController {
         String clientMsgId = "SMS" + timestamp + uuidPart;
         submitReq.setMsgId(clientMsgId.hashCode()); // CMPP 协议需要 int 类型的 msgId
         submitReq.setServiceId(request.getServiceId() != null ? request.getServiceId() : "0000000000");
+        submitReq.setRegisteredDelivery(1); // 请求状态报告
 
         String destPhone = request.getPhone();
         String finalContent = content;
+        final String finalSignature = signatureText;
+        final String finalCarrier = carrier;
         // REST 入口客户标识固定为 REST（仅落库，不推送下游）
         CompletableFuture<SubmitResult> submitFuture =
                 connectionManager.submit(submitReq, DownstreamPushService.REST_SP_ID);
@@ -143,7 +165,7 @@ public class SmsController {
                         smsRecordService.recordSmsDown(clientMsgId, null, DownstreamPushService.REST_SP_ID,
                                 submitReq.getSrcId(), destPhone,
                                 finalContent, submitReq.getMsgFmt(), submitReq.getServiceId(),
-                                null, 2, errorMsg, null, null);
+                                null, 2, errorMsg, null, null, finalSignature, finalCarrier);
                         response.setSuccess(false);
                         response.setMessage(errorMsg);
                         return Result.<SmsSendResponse>error(errorMsg);
@@ -155,7 +177,7 @@ public class SmsController {
                         smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, DownstreamPushService.REST_SP_ID,
                                 submitReq.getSrcId(), destPhone,
                                 finalContent, submitReq.getMsgFmt(), submitReq.getServiceId(),
-                                channelCode, 1, null, null, null);
+                                channelCode, 1, null, null, null, finalSignature, finalCarrier);
                         response.setSuccess(true);
                         response.setMessage("短信已提交");
                         return Result.success(response);

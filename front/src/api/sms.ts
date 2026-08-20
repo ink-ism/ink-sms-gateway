@@ -1,11 +1,16 @@
 import request from '../utils/axios'
-import type { ApiResponse, SmsDown, SmsUp, SmsUpDetail, SmsListData } from '../types'
+import type { ApiResponse, SmsDown, SmsDownDetail, SmsUp, SmsUpDetail, SmsListData } from '../types'
 
 /** 获取下行短信列表 */
 export function getSmsDownList(page: number, size: number, keyword?: string) {
   return request.get<any, ApiResponse<SmsListData<SmsDown>>>('/admin/sms/down/list', {
     params: { page, size, keyword }
   })
+}
+
+/** 获取下行短信详情 */
+export function getSmsDownDetail(id: number) {
+  return request.get<any, ApiResponse<SmsDownDetail>>(`/admin/sms/down/${id}/detail`)
 }
 
 /** 获取上行短信列表 */

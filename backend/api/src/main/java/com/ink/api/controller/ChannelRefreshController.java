@@ -1,6 +1,8 @@
 package com.ink.api.controller;
 
 import com.ink.common.utils.Result;
+import com.ink.common.utils.PhoneCarrierUtil;
+import com.ink.common.utils.SignatureUtil;
 import com.ink.core.connection.CmppConnectionManager;
 import com.ink.core.connection.CmppConnectionManager.SubmitResult;
 import com.ink.api.service.DownstreamPushService;
@@ -74,6 +76,7 @@ public class ChannelRefreshController {
         String clientMsgId = "TST" + timestamp + uuidPart;
         submitReq.setMsgId(clientMsgId.hashCode());
         submitReq.setServiceId(request.getServiceId() != null ? request.getServiceId() : "0000000000");
+        submitReq.setRegisteredDelivery(1); // 请求状态报告
 
         String destPhone = request.getPhone();
         CompletableFuture<SubmitResult> submitFuture = connectionManager.submitToChannel(channelCode, submitReq);
@@ -91,10 +94,12 @@ public class ChannelRefreshController {
                                 ? "CMPP Submit 响应超时(10s)"
                                 : (blacklisted ? "号码已退订" : causeMsg);
                         log.error("测试发送失败: channel={}, clientMsgId={}, error={}", channelCode, clientMsgId, errorMsg);
+                        String signature = SignatureUtil.extract(request.getContent());
+                        String carrier = PhoneCarrierUtil.resolve(destPhone);
                         smsRecordService.recordSmsDown(clientMsgId, null, DownstreamPushService.REST_SP_ID,
                                 submitReq.getSrcId(), destPhone,
                                 request.getContent(), submitReq.getMsgFmt(), submitReq.getServiceId(),
-                                channelCode, 2, errorMsg, null, null);
+                                channelCode, 2, errorMsg, null, null, signature, carrier);
                         response.setSuccess(false);
                         response.setMessage("发送失败: " + errorMsg);
                         return Result.<TestSendResponse>error(response.getMessage());
@@ -102,10 +107,12 @@ public class ChannelRefreshController {
                         String serverMsgIdHex = Long.toHexString(result.getServerMsgId());
                         log.info("测试发送成功: channel={}, clientMsgId={}, serverMsgId=0x{}",
                                 channelCode, clientMsgId, serverMsgIdHex);
+                        String signature = SignatureUtil.extract(request.getContent());
+                        String carrier = PhoneCarrierUtil.resolve(destPhone);
                         smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, DownstreamPushService.REST_SP_ID,
                                 submitReq.getSrcId(), destPhone,
                                 request.getContent(), submitReq.getMsgFmt(), submitReq.getServiceId(),
-                                channelCode, 1, null, null, null);
+                                channelCode, 1, null, null, null, signature, carrier);
                         response.setSuccess(true);
                         response.setMessage("发送成功");
                         response.setServerMsgId(serverMsgIdHex);

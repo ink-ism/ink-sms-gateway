@@ -13,6 +13,7 @@
         <result column="service_id" property="serviceId"/>
         <result column="is_report" property="isReport"/>
         <result column="report_stat" property="reportStat"/>
+        <result column="carrier" property="carrier"/>
         <result column="channel_code" property="channelCode"/>
         <result column="create_time" property="createTime"/>
         <result column="down_msg_content" property="downMsgContent"/>
@@ -20,7 +21,7 @@
 
     <sql id="Base_Columns">
         u.id, u.msg_id, u.sp_id, u.src_terminal_id, u.dest_id, u.msg_content, u.msg_fmt,
-        u.service_id, u.is_report, u.report_stat, u.channel_code, u.create_time
+        u.service_id, u.is_report, u.report_stat, u.carrier, u.channel_code, u.create_time
     </sql>
 
     <!-- 通过关联表 JOIN 下行短信内容 -->
@@ -64,10 +65,10 @@
     <insert id="insert" parameterType="com.ink.admin.entity.SmsUp" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ink_sms_up (
             msg_id, src_terminal_id, dest_id, msg_content, msg_fmt,
-            service_id, is_report, report_stat, channel_code, create_time
+            service_id, is_report, report_stat, carrier, channel_code, create_time
         ) VALUES (
             #{msgId}, #{srcTerminalId}, #{destId}, #{msgContent}, #{msgFmt},
-            #{serviceId}, #{isReport}, #{reportStat}, #{channelCode}, #{createTime}
+            #{serviceId}, #{isReport}, #{reportStat}, #{carrier}, #{channelCode}, #{createTime}
         )
     </insert>
 
@@ -88,6 +89,7 @@
         <result column="service_id" property="serviceId"/>
         <result column="is_report" property="isReport"/>
         <result column="report_stat" property="reportStat"/>
+        <result column="carrier" property="carrier"/>
         <result column="channel_code" property="channelCode"/>
         <result column="create_time" property="createTime"/>
         <result column="down_msg_content" property="downMsgContent"/>
@@ -101,7 +103,7 @@
     <select id="findDetailById" resultMap="DetailResultMap">
         SELECT u.id, u.msg_id, u.sp_id, u.src_terminal_id, u.dest_id,
                u.msg_content, u.msg_fmt, u.service_id, u.is_report, u.report_stat,
-               u.channel_code, u.create_time,
+               u.carrier, u.channel_code, u.create_time,
                d.msg_content AS down_msg_content,
                d.create_time AS down_create_time,
                c.name AS channel_name,

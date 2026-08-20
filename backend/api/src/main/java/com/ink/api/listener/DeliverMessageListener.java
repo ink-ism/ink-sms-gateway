@@ -7,6 +7,7 @@ import com.ink.api.service.SmsRecordService;
 import com.ink.channel.cmpp.CmppCommandType;
 import com.ink.channel.cmpp.CmppMessage;
 import com.ink.channel.cmpp.message.CmppDeliverRequestMessage;
+import com.ink.common.utils.PhoneCarrierUtil;
 import com.ink.core.connection.CmppConnectionManager;
 import com.ink.core.handler.CmppMessageHandler;
 import com.ink.core.repository.SubmitRouteRepository;
@@ -145,14 +146,14 @@ public class DeliverMessageListener {
             log.info("命中退订关键字，登记黑名单: channel={}, phone={}, keyword={}", channelCode, phone, keyword);
             blacklistService.addByUnsubscribe(channelCode, phone, keyword, msgIdStr);
             smsRecordService.recordSmsUp(msgIdStr, null, phone, destId, content,
-                    deliver.getMsgFmt(), deliver.getServiceId(), channelCode);
+                    deliver.getMsgFmt(), deliver.getServiceId(), channelCode, PhoneCarrierUtil.resolve(phone));
             return;
         }
 
         // 2. 路由给最近一次向该号码发送的客户
         String spId = smsRecordService.findLatestSpIdByPhone(phone);
         smsRecordService.recordSmsUp(msgIdStr, spId, phone, destId, content,
-                deliver.getMsgFmt(), deliver.getServiceId(), channelCode);
+                deliver.getMsgFmt(), deliver.getServiceId(), channelCode, PhoneCarrierUtil.resolve(phone));
         if (spId == null) {
             log.info("上行短信未找到路由客户，仅落库: src={}", phone);
             return;

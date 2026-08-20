@@ -1,5 +1,6 @@
 package com.ink.admin.controller;
 
+import com.ink.admin.dto.SmsDownDetail;
 import com.ink.admin.entity.SmsDown;
 import com.ink.admin.service.SmsDownService;
 import com.ink.common.utils.Result;
@@ -49,5 +50,12 @@ public class SmsDownController {
         data.put("page", page);
         data.put("size", size);
         return Result.success(data);
+    }
+
+    @Operation(summary = "获取下行短信详情")
+    @GetMapping("/{id}/detail")
+    public Result<SmsDownDetail> getDetail(
+            @PathVariable @Parameter(description = "下行短信ID") Long id) {
+        return Result.success(smsDownService.getDetail(id));
     }
 }

@@ -19,6 +19,8 @@ import com.ink.api.service.RateLimiterService;
 import com.ink.api.service.SensitiveWordService;
 import com.ink.api.service.SpAccountService;
 import com.ink.api.service.SmsRecordService;
+import com.ink.common.utils.PhoneCarrierUtil;
+import com.ink.common.utils.SignatureUtil;
 import com.ink.core.connection.CmppConnectionManager;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -285,6 +287,8 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
         sendResponse(CmppCommandType.SUBMIT_RESP.getCommandId(), sequenceId, submitResp.toBytes());
 
         // 6. 异步转发到上游 CMPP 服务器（完全 fire-and-forget，不阻塞 submitExecutor 线程）
+        // 强制请求状态报告，确保上游返回 Deliver
+        submitReq.setRegisteredDelivery(1);
         final CmppSubmitRequestMessage finalSubmitReq = submitReq;
         final String finalSpId = spId;
         final String finalDestPhone = destPhone;
@@ -293,6 +297,17 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
         final int finalMsgFmt = submitReq.getMsgFmt();
         final String finalServiceId = submitReq.getServiceId();
         final BigDecimal finalFee = fee;
+        // 自动提取签名和运营商
+        final String extractedSignature = SignatureUtil.extract(finalMsgContent);
+        final String extractedCarrier = PhoneCarrierUtil.resolve(finalDestPhone);
+
+        // 签名必填校验
+        if (extractedSignature == null || extractedSignature.isBlank()) {
+            log.warn("CMPP Submit 缺少签名: spId={}, dest={}", finalSpId, finalDestPhone);
+            rejectSubmit(sequenceId, clientMsgId, finalSpId, submitReq, finalDestPhone, 4, "短信内容缺少签名");
+            return;
+        }
+
         CompletableFuture.runAsync(() -> {
             connectionManager.submit(finalSubmitReq, finalSpId).whenComplete((result, ex) -> {
                 if (ex == null) {
@@ -304,7 +319,7 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
                         BigDecimal cost = billingService != null ? billingService.findCostPrice(channelCode) : null;
                         smsRecordService.recordSmsDown(clientMsgId, serverMsgIdHex, finalSpId, finalSrcId,
                                 finalDestPhone, finalMsgContent, finalMsgFmt,
-                                finalServiceId, channelCode, 1, null, finalFee, cost);
+                                finalServiceId, channelCode, 1, null, finalFee, cost, extractedSignature, extractedCarrier);
                     }
                 } else if (isBlacklisted(ex)) {
                     // 黑名单拦截：返还预扣余额
@@ -313,7 +328,7 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
                     if (smsRecordService != null) {
                         smsRecordService.recordSmsDown(clientMsgId, null, finalSpId, finalSrcId,
                                 finalDestPhone, finalMsgContent, finalMsgFmt,
-                                finalServiceId, null, 2, "号码已退订", null, null);
+                                finalServiceId, null, 2, "号码已退订", null, null, extractedSignature, extractedCarrier);
                     }
                 } else {
                     // 转发失败：返还预扣余额
@@ -322,7 +337,7 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
                     if (smsRecordService != null) {
                         smsRecordService.recordSmsDown(clientMsgId, null, finalSpId, finalSrcId,
                                 finalDestPhone, finalMsgContent, finalMsgFmt,
-                                finalServiceId, null, 2, ex.getMessage(), null, null);
+                                finalServiceId, null, 2, ex.getMessage(), null, null, extractedSignature, extractedCarrier);
                     }
                 }
             });
@@ -336,9 +351,11 @@ public class CmppServerHandler extends ChannelInboundHandlerAdapter {
                               CmppSubmitRequestMessage submitReq, String destPhone,
                               int resultCode, String errorMsg) {
         if (smsRecordService != null) {
+            String signature = SignatureUtil.extract(submitReq.getMsgContent());
+            String carrier = PhoneCarrierUtil.resolve(destPhone);
             smsRecordService.recordSmsDown(clientMsgId, null, spId, submitReq.getSrcId(),
                     destPhone, submitReq.getMsgContent(), submitReq.getMsgFmt(),
-                    submitReq.getServiceId(), null, 2, errorMsg, null, null);
+                    submitReq.getServiceId(), null, 2, errorMsg, null, null, signature, carrier);
         }
         CmppSubmitResponseMessage submitResp = new CmppSubmitResponseMessage();
         submitResp.setMsgId(0);

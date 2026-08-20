@@ -20,6 +20,7 @@ public class SmsUpDetail {
     private String serviceId;
     private Integer isReport;
     private String reportStat;
+    private String carrier;
     private String channelCode;
     private LocalDateTime createTime;
 

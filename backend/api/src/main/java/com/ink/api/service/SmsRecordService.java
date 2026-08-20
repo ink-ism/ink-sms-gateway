@@ -45,7 +45,12 @@ public class SmsRecordService {
             ensureColumn("ink_sms_down", "sp_id", "VARCHAR(30) DEFAULT NULL AFTER server_msg_id");
             ensureColumn("ink_sms_down", "fee", "DECIMAL(8,4) DEFAULT NULL AFTER error_msg");
             ensureColumn("ink_sms_down", "cost", "DECIMAL(8,4) DEFAULT NULL AFTER fee");
+            ensureColumn("ink_sms_down", "signature", "VARCHAR(30) DEFAULT NULL AFTER cost");
+            ensureColumn("ink_sms_down", "carrier", "VARCHAR(20) DEFAULT NULL AFTER signature");
+            ensureColumn("ink_sms_down", "update_time", "DATETIME DEFAULT NULL AFTER create_time");
+            ensureColumn("ink_sms_down", "status_report_time", "DATETIME DEFAULT NULL AFTER update_time");
             ensureColumn("ink_sms_up", "sp_id", "VARCHAR(30) DEFAULT NULL AFTER msg_id");
+            ensureColumn("ink_sms_up", "carrier", "VARCHAR(20) DEFAULT NULL AFTER report_stat");
             ensureColumn("ink_sp", "balance", "DECIMAL(12,4) DEFAULT 0 AFTER name");
             ensureColumn("ink_sp", "unit_price", "DECIMAL(8,4) DEFAULT 0.05 AFTER balance");
             ensureColumn("ink_sp", "rate_limit", "INT DEFAULT 20 AFTER unit_price");
@@ -203,9 +208,9 @@ public class SmsRecordService {
     public void recordSmsDown(String clientMsgId, String serverMsgId, String spId, String srcId, String destTerminalId,
                               String msgContent, int msgFmt, String serviceId,
                               String channelCode, int status, String errorMsg,
-                              BigDecimal fee, BigDecimal cost) {
+                              BigDecimal fee, BigDecimal cost, String signature, String carrier) {
         dbWriteExecutor.execute(() -> doRecordSmsDown(clientMsgId, serverMsgId, spId, srcId, destTerminalId,
-                msgContent, msgFmt, serviceId, channelCode, status, errorMsg, fee, cost));
+                msgContent, msgFmt, serviceId, channelCode, status, errorMsg, fee, cost, signature, carrier));
     }
 
     /**
@@ -214,9 +219,9 @@ public class SmsRecordService {
      */
     public void recordSmsUp(String msgId, String spId, String srcTerminalId, String destId,
                             String msgContent, int msgFmt, String serviceId,
-                            String channelCode) {
+                            String channelCode, String carrier) {
         dbWriteExecutor.execute(() -> doRecordSmsUp(msgId, spId, srcTerminalId, destId,
-                msgContent, msgFmt, serviceId, channelCode));
+                msgContent, msgFmt, serviceId, channelCode, carrier));
     }
 
     /**
@@ -232,11 +237,11 @@ public class SmsRecordService {
     private void doRecordSmsDown(String clientMsgId, String serverMsgId, String spId, String srcId, String destTerminalId,
                                  String msgContent, int msgFmt, String serviceId,
                                  String channelCode, int status, String errorMsg,
-                                 BigDecimal fee, BigDecimal cost) {
+                                 BigDecimal fee, BigDecimal cost, String signature, String carrier) {
         try {
             jdbcTemplate.update(
-                    "INSERT INTO ink_sms_down (msg_id, server_msg_id, sp_id, src_id, dest_terminal_id, msg_content, msg_fmt, service_id, channel_code, status, error_msg, fee, cost, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    clientMsgId, serverMsgId, spId, srcId, destTerminalId, msgContent, msgFmt, serviceId, channelCode, status, errorMsg, fee, cost, LocalDateTime.now()
+                    "INSERT INTO ink_sms_down (msg_id, server_msg_id, sp_id, src_id, dest_terminal_id, msg_content, msg_fmt, service_id, channel_code, status, error_msg, fee, cost, signature, carrier, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    clientMsgId, serverMsgId, spId, srcId, destTerminalId, msgContent, msgFmt, serviceId, channelCode, status, errorMsg, fee, cost, signature, carrier, LocalDateTime.now()
             );
             log.debug("下行短信记录已写入: clientMsgId={}, serverMsgId={}, spId={}, dest={}", clientMsgId, serverMsgId, spId, destTerminalId);
         } catch (Exception e) {
@@ -246,12 +251,12 @@ public class SmsRecordService {
 
     private void doRecordSmsUp(String msgId, String spId, String srcTerminalId, String destId,
                                String msgContent, int msgFmt, String serviceId,
-                               String channelCode) {
+                               String channelCode, String carrier) {
         try {
             // 1. 插入上行记录
             jdbcTemplate.update(
-                    "INSERT INTO ink_sms_up (msg_id, sp_id, src_terminal_id, dest_id, msg_content, msg_fmt, service_id, is_report, report_stat, channel_code, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)",
-                    msgId, spId, srcTerminalId, destId, msgContent, msgFmt, serviceId, channelCode, LocalDateTime.now()
+                    "INSERT INTO ink_sms_up (msg_id, sp_id, src_terminal_id, dest_id, msg_content, msg_fmt, service_id, is_report, report_stat, carrier, channel_code, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?)",
+                    msgId, spId, srcTerminalId, destId, msgContent, msgFmt, serviceId, carrier, channelCode, LocalDateTime.now()
             );
             
             // 2. 获取刚插入的 up_id
@@ -300,8 +305,8 @@ public class SmsRecordService {
             );
             if (clientMsgId != null) {
                 int rows = jdbcTemplate.update(
-                        "UPDATE ink_sms_down SET status = ?, status_report = ? WHERE msg_id = ?",
-                        status, reportStat, clientMsgId
+                        "UPDATE ink_sms_down SET status = ?, status_report = ?, update_time = ?, status_report_time = ? WHERE msg_id = ?",
+                        status, reportStat, LocalDateTime.now(), LocalDateTime.now(), clientMsgId
                 );
                 if (rows > 0) {
                     log.debug("下行短信状态已更新: clientMsgId={}, serverMsgId={}, stat={}, status={}",

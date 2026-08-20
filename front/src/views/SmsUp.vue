@@ -37,36 +37,36 @@
 
     <!-- 上行短信表格 -->
     <div class="table-card panel">
-      <el-table :data="tableData" v-loading="loading">
+      <el-table :data="tableData" v-loading="loading" max-height="600" style="width: 100%">
         <el-table-column prop="msgId" label="消息ID" width="150" show-overflow-tooltip>
           <template #default="{ row }"><span class="mono msg-id-cell">{{ row.msgId }}</span></template>
         </el-table-column>
-        <el-table-column prop="srcTerminalId" label="源手机号" width="140">
+        <el-table-column prop="srcTerminalId" label="源手机号" width="140" show-overflow-tooltip>
           <template #default="{ row }"><span class="mono phone-cell">{{ row.srcTerminalId }}</span></template>
         </el-table-column>
-        <el-table-column prop="destId" label="目的号码" width="120">
-          <template #default="{ row }"><span class="mono">{{ row.destId }}</span></template>
-        </el-table-column>
-        <el-table-column prop="msgContent" label="上行内容" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }"><span class="content-cell">{{ row.msgContent }}</span></template>
-        </el-table-column>
-        <el-table-column prop="downMsgContent" label="关联下行" min-width="180" show-overflow-tooltip>
+        <el-table-column prop="carrier" label="运营商" width="90" align="center" show-overflow-tooltip>
           <template #default="{ row }">
-            <span class="content-cell down-content" v-if="row.downMsgContent">{{ row.downMsgContent }}</span>
-            <span class="dim-text" v-else>—</span>
+            <el-tag v-if="row.carrier && row.carrier !== '未知'" size="small" :type="carrierTagType(row.carrier)" effect="plain">{{ row.carrier }}</el-tag>
+            <span v-else class="cell-empty">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="类型" width="100" align="center">
+        <el-table-column prop="destId" label="目的号码" width="120" show-overflow-tooltip>
+          <template #default="{ row }"><span class="mono">{{ row.destId }}</span></template>
+        </el-table-column>
+        <el-table-column prop="msgContent" label="短信内容" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }"><span class="content-cell">{{ row.msgContent }}</span></template>
+        </el-table-column>
+        <el-table-column prop="channelCode" label="通道编码" width="120" show-overflow-tooltip>
+          <template #default="{ row }"><span class="code-chip">{{ row.channelCode }}</span></template>
+        </el-table-column>
+        <el-table-column label="类型" width="100" align="center" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag size="small" :type="row.isReport === 1 ? 'danger' : 'success'" round>
               {{ row.isReport === 1 ? '状态报告' : '上行短信' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="channelCode" label="通道编码" width="120">
-          <template #default="{ row }"><span class="code-chip">{{ row.channelCode }}</span></template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="接收时间" width="170">
+        <el-table-column prop="createTime" label="接收时间" width="170" show-overflow-tooltip>
           <template #default="{ row }"><span class="mono dim-cell">{{ formatDateTime(row.createTime) }}</span></template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
@@ -101,7 +101,7 @@
     </div>
 
     <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="上行短信详情" width="680px" destroy-on-close>
+    <el-dialog v-model="detailVisible" title="上行短信详情" width="720px" destroy-on-close>
       <div v-loading="detailLoading">
         <template v-if="detailData">
           <!-- 上行短信信息 -->
@@ -118,17 +118,21 @@
                 </el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="源手机号">{{ detailData.srcTerminalId }}</el-descriptions-item>
+              <el-descriptions-item label="运营商">
+                <el-tag v-if="detailData.carrier && detailData.carrier !== '未知'" size="small" :type="carrierTagType(detailData.carrier)" effect="plain">{{ detailData.carrier }}</el-tag>
+                <span v-else>-</span>
+              </el-descriptions-item>
               <el-descriptions-item label="目的号码">{{ detailData.destId || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="消息格式">{{ msgFmtText(detailData.msgFmt) }}</el-descriptions-item>
-              <el-descriptions-item label="业务标识">{{ detailData.serviceId || '—' }}</el-descriptions-item>
               <el-descriptions-item label="路由客户">{{ detailData.spId || '—' }}</el-descriptions-item>
-              <el-descriptions-item label="接收时间">{{ formatDateTime(detailData.createTime) }}</el-descriptions-item>
               <el-descriptions-item label="短信内容" :span="2">
                 <div class="detail-content">{{ detailData.msgContent || '—' }}</div>
               </el-descriptions-item>
+              <el-descriptions-item label="消息格式">{{ msgFmtText(detailData.msgFmt) }}</el-descriptions-item>
+              <el-descriptions-item label="业务标识">{{ detailData.serviceId || '—' }}</el-descriptions-item>
               <el-descriptions-item label="状态报告" v-if="detailData.isReport === 1">
                 {{ detailData.reportStat || '—' }}
               </el-descriptions-item>
+              <el-descriptions-item label="接收时间">{{ formatDateTime(detailData.createTime) }}</el-descriptions-item>
             </el-descriptions>
           </div>
 
@@ -208,6 +212,13 @@ const handleReset = () => { keyword.value = ''; typeFilter.value = ''; currentPa
 
 const msgFmtText = (fmt: number) => {
   switch (fmt) { case 0: return 'ASCII'; case 8: return 'UCS2'; case 15: return 'GB2312'; default: return '其他' }
+}
+
+const carrierTagType = (carrier: string) => {
+  if (carrier === '移动') return 'success'
+  if (carrier === '联通') return 'warning'
+  if (carrier === '电信') return 'primary'
+  return 'info'
 }
 
 // 查看详情
@@ -290,21 +301,13 @@ onMounted(() => { fetchData() })
   font-size: 13px;
 }
 
-.down-content {
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-style: italic;
-  opacity: 0.8;
-}
-
-.dim-text {
-  color: var(--text-secondary);
-  opacity: 0.5;
-}
-
 .dim-cell {
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+.cell-empty {
+  color: var(--text-muted);
 }
 
 /* 分页 */

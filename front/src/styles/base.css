@@ -96,3 +96,5 @@ body::after {
   padding: 2px 8px;
   border-radius: 6px;
 }
+
+/* 全局：表格单元格禁止自动换行（已迁移到 element-overrides.css） */

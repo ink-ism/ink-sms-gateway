@@ -66,3 +66,21 @@ knife4j:
   enable: true
   setting:
     language: zh_cn
+
+# 每日定时短信配置
+ink:
+  daily-sms:
+    enabled: true
+    cron: "0 0 9 * * ?"
+    min-count: 5000
+    max-count: 20000
+    sp-id: "testsp01"
+    src-id-prefix: "10690700"
+    dest-phones:
+      - 18545654350
+      - 19223308450
+      - 13164564350
+      - 18846936654
+    templates:
+      - "【墨轩科技】今日天气晴好，注意防晒，退订回复R"
+      - "【墨轩科技】您的验证码是${random}，5分钟内有效，请勿泄露"

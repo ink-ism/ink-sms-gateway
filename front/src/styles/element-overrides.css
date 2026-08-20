@@ -45,6 +45,13 @@ html.dark .el-table__empty-text {
   color: var(--text-muted);
 }
 
+/* 表格单元格禁止自动换行 */
+.el-table .el-table__cell {
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+}
+
 /* 表格 loading 遮罩 */
 html.dark .el-loading-mask {
   background-color: rgba(7, 11, 20, 0.7);

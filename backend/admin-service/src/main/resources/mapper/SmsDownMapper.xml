@@ -15,12 +15,17 @@
         <result column="status" property="status"/>
         <result column="status_report" property="statusReport"/>
         <result column="error_msg" property="errorMsg"/>
+        <result column="signature" property="signature"/>
+        <result column="carrier" property="carrier"/>
         <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="status_report_time" property="statusReportTime"/>
     </resultMap>
 
     <sql id="Base_Columns">
         id, msg_id, server_msg_id, src_id, dest_terminal_id, msg_content, msg_fmt,
-        service_id, channel_code, status, status_report, error_msg, create_time
+        service_id, channel_code, status, status_report, error_msg, signature, carrier,
+        create_time, update_time, status_report_time
     </sql>
 
     <select id="findByPage" resultMap="BaseResultMap">
@@ -55,10 +60,10 @@
     <insert id="insert" parameterType="com.ink.admin.entity.SmsDown" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ink_sms_down (
             msg_id, server_msg_id, src_id, dest_terminal_id, msg_content, msg_fmt,
-            service_id, channel_code, status, status_report, error_msg, create_time
+            service_id, channel_code, status, status_report, error_msg, signature, carrier, create_time
         ) VALUES (
             #{msgId}, #{serverMsgId}, #{srcId}, #{destTerminalId}, #{msgContent}, #{msgFmt},
-            #{serviceId}, #{channelCode}, #{status}, #{statusReport}, #{errorMsg}, #{createTime}
+            #{serviceId}, #{channelCode}, #{status}, #{statusReport}, #{errorMsg}, #{signature}, #{carrier}, #{createTime}
         )
     </insert>
 
@@ -67,5 +72,46 @@
         SET status = #{status}, status_report = #{statusReport}, error_msg = #{errorMsg}
         WHERE id = #{id}
     </update>
+
+    <!-- 查询下行短信详情（含通道信息） -->
+    <resultMap id="DetailResultMap" type="com.ink.admin.dto.SmsDownDetail">
+        <id column="id" property="id"/>
+        <result column="msg_id" property="msgId"/>
+        <result column="server_msg_id" property="serverMsgId"/>
+        <result column="sp_id" property="spId"/>
+        <result column="src_id" property="srcId"/>
+        <result column="dest_terminal_id" property="destTerminalId"/>
+        <result column="msg_content" property="msgContent"/>
+        <result column="msg_fmt" property="msgFmt"/>
+        <result column="service_id" property="serviceId"/>
+        <result column="channel_code" property="channelCode"/>
+        <result column="status" property="status"/>
+        <result column="status_report" property="statusReport"/>
+        <result column="error_msg" property="errorMsg"/>
+        <result column="signature" property="signature"/>
+        <result column="carrier" property="carrier"/>
+        <result column="fee" property="fee"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="status_report_time" property="statusReportTime"/>
+        <result column="channel_name" property="channelName"/>
+        <result column="channel_host" property="channelHost"/>
+        <result column="channel_port" property="channelPort"/>
+        <result column="channel_status" property="channelStatus"/>
+    </resultMap>
+
+    <select id="findDetailById" resultMap="DetailResultMap">
+        SELECT d.id, d.msg_id, d.server_msg_id, d.sp_id, d.src_id, d.dest_terminal_id,
+               d.msg_content, d.msg_fmt, d.service_id, d.channel_code, d.status,
+               d.status_report, d.error_msg, d.signature, d.carrier, d.fee,
+               d.create_time, d.update_time, d.status_report_time,
+               c.name AS channel_name,
+               c.host AS channel_host,
+               c.port AS channel_port,
+               c.status AS channel_status
+        FROM ink_sms_down d
+        LEFT JOIN ink_channel c ON c.code COLLATE utf8mb4_unicode_ci = d.channel_code COLLATE utf8mb4_unicode_ci
+        WHERE d.id = #{id}
+    </select>
 
 </mapper>

@@ -97,7 +97,38 @@ export interface SmsDown {
   status: number
   statusReport: string
   errorMsg: string
+  signature: string
+  carrier: string
   createTime: string
+  updateTime: string
+  statusReportTime: string
+}
+
+/** 下行短信详情 */
+export interface SmsDownDetail {
+  id: number
+  msgId: string
+  serverMsgId: string
+  spId: string
+  srcId: string
+  destTerminalId: string
+  msgContent: string
+  msgFmt: number
+  serviceId: string
+  channelCode: string
+  status: number
+  statusReport: string
+  errorMsg: string
+  signature: string
+  carrier: string
+  fee: number
+  createTime: string
+  updateTime: string
+  statusReportTime: string
+  channelName: string
+  channelHost: string
+  channelPort: number
+  channelStatus: number
 }
 
 /** 上行短信记录 */
@@ -112,6 +143,7 @@ export interface SmsUp {
   serviceId: string
   isReport: number
   reportStat: string
+  carrier: string
   channelCode: string
   createTime: string
   /** 关联下行短信内容 */
@@ -130,6 +162,7 @@ export interface SmsUpDetail {
   serviceId: string
   isReport: number
   reportStat: string
+  carrier: string
   channelCode: string
   createTime: string
   downMsgContent: string

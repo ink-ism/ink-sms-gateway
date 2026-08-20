@@ -1,5 +1,6 @@
 package com.ink.admin.service;
 
+import com.ink.admin.dto.SmsDownDetail;
 import com.ink.admin.entity.SmsDown;
 import com.ink.admin.mapper.SmsDownMapper;
 import lombok.RequiredArgsConstructor;
@@ -35,5 +36,9 @@ public class SmsDownService {
             return smsDownMapper.count();
         }
         return smsDownMapper.countByKeyword(keyword);
+    }
+
+    public SmsDownDetail getDetail(Long id) {
+        return smsDownMapper.findDetailById(id);
     }
 }
