@@ -153,7 +153,21 @@ public class CmppClientHandler extends ChannelInboundHandlerAdapter {
      * 处理 Deliver 请求（短信下发/状态报告）
      */
     private void handleDeliverRequest(CmppMessage cmppMsg, ChannelHandlerContext ctx) {
-        CmppDeliverRequestMessage deliver = CmppDeliverRequestMessage.fromBytes(cmppMsg.getBody());
+        int seqId = cmppMsg.getSequenceId();
+        CmppDeliverRequestMessage deliver;
+        try {
+            deliver = CmppDeliverRequestMessage.fromBytes(cmppMsg.getBody());
+        } catch (Exception e) {
+            log.error("Deliver 消息解析失败: seqId={}, bodyLen={}", seqId,
+                    cmppMsg.getBody() != null ? cmppMsg.getBody().length : 0, e);
+            // 解析失败也要回 Deliver_resp，避免网关重试或标记失败
+            CmppDeliverResponseMessage failResp = new CmppDeliverResponseMessage();
+            failResp.setResult(1); // 消息结构错误
+            CmppMessage response = CmppMessage.create(
+                    CmppCommandType.DELIVER_RESP.getCommandId(), seqId, failResp.toBytes());
+            ctx.writeAndFlush(response);
+            return;
+        }
 
         if (deliver.isReport()) {
             log.info("收到短信状态报告: msgId=0x{}, reportMsgId=0x{}, stat={}, srcTerminal={}",
@@ -171,7 +185,6 @@ public class CmppClientHandler extends ChannelInboundHandlerAdapter {
         deliverResp.setMsgId(deliver.getMsgId());
         deliverResp.setResult(0); // 成功
 
-        int seqId = cmppMsg.getSequenceId();
         CmppMessage response = CmppMessage.create(
                 CmppCommandType.DELIVER_RESP.getCommandId(), seqId, deliverResp.toBytes());
         ctx.writeAndFlush(response);

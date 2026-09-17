@@ -49,8 +49,8 @@ public class CmppDeliverRequestMessage {
     /** 源终端号码（21 字节） */
     private String srcTerminalId;
 
-    /** 源终端类型（1 字节） */
-    private int srcTerminalType;
+    /** 是否状态报告（1=状态报告，0=普通短信） */
+    private int registeredDelivery;
 
     /** 消息长度 */
     private int msgLength;
@@ -74,18 +74,17 @@ public class CmppDeliverRequestMessage {
     private static final DateTimeFormatter REPORT_TIME_FORMAT = DateTimeFormatter.ofPattern("yyMMddHHmm");
 
     /**
-     * 从字节数组解析（CMPP 2.0 Deliver，emay 服务器格式）
+     * 从字节数组解析（标准 CMPP 2.0 Deliver 格式）
      *
-     * emay 服务器格式说明（无 Msg_Src / Fee 字段）:
      * 公共头部:
      *   Msg_Id(8) Dest_Id(21) Service_Id(10) TP_pid(1) TP_udhi(1) Msg_Fmt(1)
-     *   Src_Terminal_Id(21, 固定格式) Src_Terminal_Type(1)
+     *   Src_terminal_Id(21) Registered_Delivery(1) Msg_Length(1)
      *
-     * 上行短信(TP_udhi=0):
-     *   Msg_Length(1) Msg_Content(N)
+     * 普通短信(Registered_Delivery=0):
+     *   Msg_Content(N) Reserved(8)
      *
-     * 状态报告(TP_udhi=1):
-     *   Msg_Length(1) Msg_Content(N)
+     * 状态报告(Registered_Delivery=1):
+     *   Msg_Content(N) Reserved(8)
      *   内容格式: Msg_Id(8) + Stat(7) + Submit_Time(10) + Done_Time(10) + Dest_Terminal_Id(21) + Sequence_Code(1)
      */
     public static CmppDeliverRequestMessage fromBytes(byte[] body) {
@@ -95,7 +94,7 @@ public class CmppDeliverRequestMessage {
             return msg;
         }
 
-        log.info("Deliver fromBytes: bodyLen={}, hex={}", body.length,
+        log.debug("Deliver fromBytes: bodyLen={}, hex={}", body.length,
                 bytesToHex(body, Math.min(body.length, 120)));
 
         int pos = 0;
@@ -107,59 +106,56 @@ public class CmppDeliverRequestMessage {
             id = (id << 8) | (body[pos++] & 0xFF);
         }
         msg.setMsgId(id);
-        log.info("  [pos=0->8] Msg_Id=0x{}", Long.toHexString(id));
+        log.debug("  [pos=0->8] Msg_Id=0x{}", Long.toHexString(id));
 
         // Dest_Id (21 bytes)
         if (!checkPos(body, pos, 21)) return msg;
-        log.info("  [pos={}] Dest_Id bytes={}", pos, bytesToHex(body, pos, 21));
         msg.setDestId(readFixedString(body, pos, 21));
         pos += 21;
-        log.info("  [pos=8->29] Dest_Id={}", msg.getDestId());
+        log.debug("  [pos=8->29] Dest_Id={}", msg.getDestId());
 
         // Service_Id (10 bytes)
         if (!checkPos(body, pos, 10)) return msg;
-        log.info("  [pos={}] Service_Id bytes={}", pos, bytesToHex(body, pos, 10));
         msg.setServiceId(readFixedString(body, pos, 10));
         pos += 10;
-        log.info("  [pos=29->39] Service_Id={}", msg.getServiceId());
+        log.debug("  [pos=29->39] Service_Id={}", msg.getServiceId());
 
         // TP_pid (1), TP_udhi (1), Msg_Fmt (1)
         if (!checkPos(body, pos, 3)) return msg;
         msg.setTpPid(body[pos++] & 0xFF);
         msg.setTpUdhi(body[pos++] & 0xFF);
         msg.setMsgFmt(body[pos++] & 0xFF);
-        log.info("  [pos=39->42] TP_pid={}, TP_udhi={}, Msg_Fmt={}", msg.getTpPid(), msg.getTpUdhi(), msg.getMsgFmt());
+        log.debug("  [pos=39->42] TP_pid={}, TP_udhi={}, Msg_Fmt={}", msg.getTpPid(), msg.getTpUdhi(), msg.getMsgFmt());
 
-        // ===== emay 格式: Src_Terminal_Id(21) + Src_Terminal_Type(1) =====
-        // Src_Terminal_Id (21 bytes, 固定格式)
+        // Src_terminal_Id (21 bytes)
         if (!checkPos(body, pos, 21)) return msg;
-        log.info("  [pos={}] Src_Terminal_Id bytes={}", pos, bytesToHex(body, pos, 21));
         msg.setSrcTerminalId(readFixedString(body, pos, 21));
         pos += 21;
+        log.debug("  [pos=42->63] Src_terminal_Id={}", msg.getSrcTerminalId());
 
-        // Src_Terminal_Type (1 byte)
+        // Registered_Delivery (1 byte) — 标准 CMPP 2.0 字段
         if (!checkPos(body, pos, 1)) return msg;
-        msg.setSrcTerminalType(body[pos++] & 0xFF);
-        log.info("  Src_Terminal_Id={}, Src_Terminal_Type={}", msg.getSrcTerminalId(), msg.getSrcTerminalType());
+        msg.setRegisteredDelivery(body[pos++] & 0xFF);
+        log.debug("  [pos=63->64] Registered_Delivery={}", msg.getRegisteredDelivery());
 
         // Msg_Length (1 byte)
         if (!checkPos(body, pos, 1)) return msg;
         msg.setMsgLength(body[pos++] & 0xFF);
-        log.info("  [pos={}] Msg_Length={}", pos - 1, msg.getMsgLength());
+        log.debug("  [pos=64->65] Msg_Length={}", msg.getMsgLength());
 
         // Msg_Content
         if (msg.getMsgLength() > 0 && pos + msg.getMsgLength() <= body.length) {
             byte[] contentBytes = new byte[msg.getMsgLength()];
             System.arraycopy(body, pos, contentBytes, 0, msg.getMsgLength());
 
-            // 状态报告检测：TP_udhi=1 且内容长度>=57（标准报告: 8+7+10+10+21+1）
-            if (msg.getTpUdhi() == 1 && msg.getMsgLength() >= 15) {
+            // 状态报告检测：Registered_Delivery==1
+            if (msg.getRegisteredDelivery() == 1) {
                 msg.setReport(true);
                 parseReport(contentBytes, msg);
             } else {
                 msg.setMsgContent(decodeContent(contentBytes, msg.getMsgFmt()));
             }
-        } else if (msg.getTpUdhi() == 1 && pos < body.length) {
+        } else if (msg.getRegisteredDelivery() == 1 && pos < body.length) {
             // 状态报告: Msg_Length 可能不准确，尝试用剩余字节解析
             int remaining = body.length - pos;
             if (remaining >= 15) {
@@ -170,9 +166,9 @@ public class CmppDeliverRequestMessage {
             }
         }
 
-        log.info("Deliver 解析完成: msgId=0x{}, destId={}, srcTerminal={}, serviceId={}, msgFmt={}, isReport={}, content={}",
+        log.info("Deliver 解析完成: msgId=0x{}, destId={}, srcTerminal={}, registeredDelivery={}, isReport={}, content={}",
                 Long.toHexString(msg.getMsgId()), msg.getDestId(), msg.getSrcTerminalId(),
-                msg.getServiceId(), msg.getMsgFmt(), msg.isReport(),
+                msg.getRegisteredDelivery(), msg.isReport(),
                 msg.isReport() ? ("stat=" + msg.getReportStat()) : msg.getMsgContent());
 
         return msg;
@@ -294,7 +290,7 @@ public class CmppDeliverRequestMessage {
         msg.setTpUdhi(1);
         msg.setMsgFmt(0);
         msg.setSrcTerminalId(destPhone);
-        msg.setSrcTerminalType(0);
+        msg.setRegisteredDelivery(1);
         msg.setReport(true);
         msg.setReportMsgId(reportMsgId);
         msg.setReportStat(stat);
@@ -320,16 +316,16 @@ public class CmppDeliverRequestMessage {
         msg.setTpUdhi(0);
         msg.setMsgFmt(msgFmt);
         msg.setSrcTerminalId(srcPhone);
-        msg.setSrcTerminalType(0);
+        msg.setRegisteredDelivery(0);
         msg.setMsgContent(content != null ? content : "");
         msg.setReport(false);
         return msg;
     }
 
     /**
-     * 序列化为消息体字节（布局与 fromBytes 对称）
+     * 序列化为消息体字节（标准 CMPP 2.0 Deliver 格式）
      * Msg_Id(8) Dest_Id(21) Service_Id(10) TP_pid(1) TP_udhi(1) Msg_Fmt(1)
-     * Src_Terminal_Id(21) Src_Terminal_Type(1) Msg_Length(1) Msg_Content(N)
+     * Src_terminal_Id(21) Registered_Delivery(1) Msg_Length(1) Msg_Content(N) Reserved(8)
      */
     public byte[] toBytes() {
         byte[] content;
@@ -338,7 +334,6 @@ public class CmppDeliverRequestMessage {
         } else {
             content = encodeContent(msgContent != null ? msgContent : "", msgFmt);
         }
-        // Msg_Length 为 1 字节，超长截断保护
         if (content.length > 255) {
             log.warn("Deliver 内容超长截断: 原长={}, 截断为 255", content.length);
             byte[] truncated = new byte[255];
@@ -346,17 +341,18 @@ public class CmppDeliverRequestMessage {
             content = truncated;
         }
 
-        ByteBuffer buf = ByteBuffer.allocate(8 + 21 + 10 + 3 + 21 + 1 + 1 + content.length);
+        ByteBuffer buf = ByteBuffer.allocate(8 + 21 + 10 + 3 + 21 + 1 + 1 + content.length + 8);
         writeLong(buf, msgId);
         writeFixedString(buf, destId, 21);
         writeFixedString(buf, serviceId, 10);
         buf.put((byte) tpPid);
-        buf.put((byte) (isReport ? 1 : tpUdhi));
+        buf.put((byte) tpUdhi);
         buf.put((byte) msgFmt);
         writeFixedString(buf, srcTerminalId, 21);
-        buf.put((byte) srcTerminalType);
+        buf.put((byte) (isReport ? 1 : registeredDelivery));
         buf.put((byte) content.length);
         buf.put(content);
+        buf.put(new byte[8]); // Reserved
         return buf.array();
     }
 

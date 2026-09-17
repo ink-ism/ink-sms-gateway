@@ -83,7 +83,8 @@ CREATE TABLE IF NOT EXISTS ink_sms_down (
     INDEX idx_channel_code (channel_code),
     INDEX idx_create_time (create_time),
     INDEX idx_sp_id (sp_id),
-    INDEX idx_server_msg_id (server_msg_id)
+    INDEX idx_server_msg_id (server_msg_id),
+    INDEX idx_msg_id (msg_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='下行短信记录表';
 
 -- 创建上行短信记录表

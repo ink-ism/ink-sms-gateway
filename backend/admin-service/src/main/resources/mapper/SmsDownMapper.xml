@@ -110,7 +110,7 @@
                c.port AS channel_port,
                c.status AS channel_status
         FROM ink_sms_down d
-        LEFT JOIN ink_channel c ON c.code COLLATE utf8mb4_unicode_ci = d.channel_code COLLATE utf8mb4_unicode_ci
+        LEFT JOIN ink_channel c ON c.code = d.channel_code
         WHERE d.id = #{id}
     </select>
 
