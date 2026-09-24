@@ -10,8 +10,8 @@ spring:
   application:
     name: api-service
   datasource:
-    url: jdbc:mysql://100.101.92.2:3306/ink_sms_gateway?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
+    url: jdbc:mysql://rm-2ze2394eru3e3qzn5zo.mysql.cn-beijing.rds.aliyuncs.com:3306/ink_sms_gateway?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ink_sms_gateway
     password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
